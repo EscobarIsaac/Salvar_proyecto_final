@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["python", "-m", "app.main"]
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - NODE_ENV=development
+    command: ["npm", "run", "dev", "--", "--host"]
