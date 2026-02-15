@@ -159,6 +159,12 @@ class AuthService:
         # Opcional: no devolver _id (si no quieres)
         user_dict.pop("_id", None)
         return user_dict
+
+    @staticmethod
+    async def login_user(login_data: UserLoginSchema) -> dict:
+        """
+        Realiza el login de un usuario verificando sus credenciales
+        """
         logger.info(f"🔐 Intento de login para: {login_data.email}")
 
         email = (login_data.email or "").strip().lower()
