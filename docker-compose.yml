@@ -10,6 +10,9 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - MONGO_URI=mongodb://mongo:27017/salvar_db
+    depends_on:
+      - mongo
     command: ["python", "-m", "app.main"]
 
   frontend:
@@ -23,3 +26,11 @@ services:
     environment:
       - NODE_ENV=development
     command: ["npm", "run", "dev", "--", "--host"]
+
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=salvar_db
