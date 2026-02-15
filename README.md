@@ -1,206 +1,179 @@
-# Proyecto Final – Sistema de Login con Reconocimiento Facial
-Backend en FastAPI + Frontend Web con cámara
+# 🔐 Sistema de Autenticación Segura con Reconocimiento Facial
 
-Este proyecto implementa un sistema de autenticación con:
-- Registro y login con email y contraseña
-- Verificación facial obligatoria durante el login
-- Detección de rostro real (liveness)
-- Almacenamiento de imágenes faciales por usuario
-- Backend en FastAPI
-- Frontend con cámara (webcam)
+Sistema completo de autenticación con reconocimiento facial biométrico, desarrollado con FastAPI, React + TypeScript, y MongoDB.
 
---------------------------------------------------
-REQUISITOS
---------------------------------------------------
+## 🎯 Características Principales
 
-SOFTWARE:
-- Python 3.11.x
-- Node.js 18 o superior
+### Seguridad Avanzada
+- **Autenticación Multi-Factor (MFA)**: Email + Contraseña + Reconocimiento Facial
+- **Encriptación Argon2**: Contraseñas hasheadas con algoritmo de última generación
+- **Verificación Biométrica**: Sistema anti-suplantación con detección de unicidad facial
+- **JWT Tokens**: Autenticación stateless con tokens seguros
+
+### Validaciones Robustas
+- **Contraseñas Épicas**:
+  - Mínimo 8 caracteres
+  - Letras mayúsculas y minúsculas
+  - Números y caracteres especiales
+- **Email y Username únicos**: Prevención de duplicados en base de datos
+- **Rostros únicos**: Un rostro = Un usuario (anti-duplicación biométrica)
+
+## 🚀 Inicio Rápido
+
+### Prerequisitos
+- Docker Desktop
 - Git
-- Windows (recomendado para este setup)
 
-PUERTOS USADOS:
-- Backend: http://127.0.0.1:8000
-- Frontend: http://localhost:8081
+### Instalación
 
---------------------------------------------------
-ESTRUCTURA DEL PROYECTO
---------------------------------------------------
+```bash
+# Clonar repositorio
+git clone https://github.com/EscobarIsaac/Salvar_proyecto_final.git
+cd Salvar_proyecto_final
 
-Proyecto_Final/
-│
-├── backend/
+# Configurar variables de entorno
+cp .env.example .env
+cp frontend/.env.example frontend/.env
+
+# Levantar servicios con Docker Compose
+docker compose up --build
+```
+
+### Acceso
+- **Frontend**: http://localhost:5173
+- **Backend API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **MongoDB**: localhost:27017
+
+## 📁 Estructura del Proyecto
+
+```
+├── backend/                 # FastAPI + Python
 │   ├── app/
-│   │   ├── routes/
-│   │   ├── services/
-│   │   ├── facial_data/        ← aquí se guardan los rostros
-│   │   ├── main.py
-│   │   └── mongo.py
-│   └── venv/
+│   │   ├── core/           # Seguridad (JWT, Argon2)
+│   │   ├── models/         # Modelos de datos
+│   │   ├── routes/         # Endpoints API
+│   │   ├── schemas/        # Validaciones Pydantic
+│   │   ├── services/       # Lógica de negocio
+│   │   └── utils/          # Utilidades y validadores
+│   ├── Dockerfile
+│   └── requirements.txt
 │
-└── frontend/
+├── frontend/               # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── components/    # Componentes UI
+│   │   ├── pages/         # Login, Register, Home
+│   │   └── lib/           # Utilidades
+│   ├── Dockerfile
+│   └── package.json
+│
+└── docker-compose.yml      # Orquestación de servicios
+```
 
---------------------------------------------------
-BACKEND – CONFIGURACIÓN Y EJECUCIÓN
---------------------------------------------------
+## 🔄 Flujo de Autenticación
 
-1) ENTRAR AL BACKEND
-Desde PowerShell:
+### Registro
+1. Usuario completa formulario (nombre, email, username, contraseña)
+2. Validación de requisitos de contraseña en tiempo real
+3. Captura facial obligatoria con modal biométrico
+4. Backend verifica unicidad de rostro (anti-duplicación)
+5. Creación de usuario con contraseña hasheada (Argon2)
+6. Redirección a login
 
-cd D:\Universidad\Salvar\Proyecto_Final\backend
+### Login
+1. Usuario ingresa email y contraseña
+2. Backend valida credenciales
+3. Si OK → Modal de verificación facial
+4. Backend confirma que el rostro pertenece al usuario
+5. Emisión de JWT token
+6. Acceso a la aplicación
 
-2) CREAR Y ACTIVAR ENTORNO VIRTUAL
+## 🛠️ Tecnologías
 
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+### Backend
+- **FastAPI**: Framework web moderno y rápido
+- **MongoDB**: Base de datos NoSQL
+- **Motor**: Driver async para MongoDB
+- **Argon2**: Hashing de contraseñas de última generación
+- **PyJWT**: Manejo de tokens JWT
+- **OpenCV + face_recognition**: Reconocimiento facial
+- **YOLO**: Detección de objetos y personas
 
-(Si PowerShell bloquea scripts)
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+### Frontend
+- **React 18**: Biblioteca UI
+- **TypeScript**: Tipado estático
+- **Vite**: Build tool ultra rápido
+- **TailwindCSS**: Estilizado utility-first
+- **Shadcn/ui**: Componentes accesibles
+- **React Router**: Navegación
+- **Lucide Icons**: Iconografía moderna
 
-3) INSTALAR DEPENDENCIAS
+### DevOps
+- **Docker**: Containerización
+- **Docker Compose**: Orquestación multi-contenedor
+- **Node 20**: Runtime JavaScript
+- **Python 3.11**: Runtime backend
 
-python -m pip install --upgrade pip setuptools wheel
+## 🔧 Comandos Útiles
 
-pip install fastapi uvicorn python-jose passlib[bcrypt] pydantic
-pip install opencv-python numpy pillow ultralytics face_recognition
+```bash
+# Levantar servicios
+docker compose up
 
-4) EJECUTAR EL BACKEND
+# Reconstruir desde cero
+docker compose up --build --no-cache
 
-uvicorn app.main:app --reload
+# Ver logs
+docker compose logs -f backend
+docker compose logs -f frontend
 
-Si todo está bien verás:
-- API: http://127.0.0.1:8000
-- Docs: http://127.0.0.1:8000/api/docs
+# Detener servicios
+docker compose down
 
---------------------------------------------------
-CORS (MUY IMPORTANTE)
---------------------------------------------------
+# Limpiar volúmenes
+docker compose down -v
+```
 
-El frontend corre en http://localhost:8081
+## 🎨 Características UI/UX
 
-En app/main.py asegúrate de tener:
+- **Diseño Responsivo**: Mobile-first design
+- **Animaciones Suaves**: Transiciones CSS optimizadas
+- **Modo Oscuro**: Tema dark por defecto
+- **Validación en Tiempo Real**: Feedback instantáneo
+- **Mensajes Descriptivos**: Errores y éxitos claros
+- **Loader States**: Indicadores de progreso visuales
 
-origins = [
-  "http://localhost:8081",
-  "http://127.0.0.1:8081"
-]
+## 🔒 Seguridad Implementada
 
-Luego REINICIA uvicorn.
+- ✅ Contraseñas hasheadas con Argon2
+- ✅ Validación de fortaleza de contraseña
+- ✅ Protección contra ataques de fuerza bruta
+- ✅ Tokens JWT con expiración
+- ✅ Verificación biométrica facial única
+- ✅ Validación de entrada en frontend y backend
+- ✅ Protección CORS configurada
+- ✅ Variables de entorno para secretos
 
---------------------------------------------------
-FRONTEND – CONFIGURACIÓN Y EJECUCIÓN
---------------------------------------------------
+## 📝 Endpoints API Principales
 
-1) ENTRAR AL FRONTEND
+```
+POST /api/auth/register                  # Registro de usuario
+POST /api/auth/login                     # Login con credenciales
+POST /api/auth/verify-facial-for-login   # Verificación facial
+GET  /api/auth/health                    # Health check
+```
 
-cd D:\Universidad\Salvar\Proyecto_Final\frontend
+## 👥 Equipo
 
-2) INSTALAR DEPENDENCIAS
+- **Pamela Chipe**
+- **Kleber Chavez**
+- **Gabriel Reiniso**
 
-npm install
+## 📄 Licencia
 
-3) EJECUTAR FRONTEND
+Este proyecto es parte del curso de Desarrollo de Software Seguro.
 
-npm run dev
+---
 
-Abre la URL que aparece, normalmente:
-http://localhost:8081
+**Desarrollado con ❤️ usando tecnologías modernas y prácticas de seguridad avanzadas**
 
---------------------------------------------------
-FLUJO DE USO DEL SISTEMA
---------------------------------------------------
-
-REGISTRO:
-1. Ir a Register
-2. Ingresar:
-   - email
-   - username
-   - password
-   - full_name
-3. Capturar rostro con la cámara
-4. Si todo es correcto → usuario creado
-
-LOGIN:
-1. Ir a Login
-2. Ingresar email y password
-3. El sistema solicita verificación facial
-4. Se abre la cámara
-5. Si el rostro coincide → login exitoso
-
---------------------------------------------------
-ENDPOINTS PRINCIPALES
---------------------------------------------------
-
-POST /api/auth/register
-
-Body:
-{
-  "email": "user@example.com",
-  "username": "user1",
-  "password": "stringst",
-  "full_name": "Nombre",
-  "facial_image_base64": "BASE64"
-}
-
-POST /api/auth/login
-
-Body:
-{
-  "email": "user@example.com",
-  "password": "stringst"
-}
-
-POST /api/auth/verify-facial-for-login?user_id=UUID
-
-Body:
-{
-  "image_base64": "BASE64"
-}
-
---------------------------------------------------
-PROBLEMAS COMUNES
---------------------------------------------------
-
-ERROR CORS:
-- Agregar http://localhost:8081 en origins
-- Reiniciar backend
-
-ERROR 401 EN VERIFICACIÓN FACIAL:
-- El usuario no tiene rostro registrado
-- facial_recognition_enabled está en false
-- La imagen no coincide
-
-ERROR:
-MotorCollection object is not callable
-
-CAUSA:
-- Estás usando MongoDB (Motor) pero código estilo Firestore
-
-SOLUCIÓN:
-- Acceder a colecciones así:
-  db["users"]
-  await users.find_one(...)
-
---------------------------------------------------
-VOLVER A REGISTRAR EL MISMO ROSTRO
---------------------------------------------------
-
-Para usar tu rostro otra vez:
-
-1) Borrar la carpeta:
-backend/app/facial_data/<user_id>
-
-2) (Opcional) borrar el usuario de la base de datos
-
---------------------------------------------------
-NOTAS FINALES
---------------------------------------------------
-
-- El sistema es estrictamente seguro: si el rostro no coincide, el login falla
-- El reconocimiento facial es obligatorio
-- El liveness detecta pantallas, celulares y fotos
-- Ideal para proyectos académicos de seguridad
-
---------------------------------------------------
-FIN
---------------------------------------------------

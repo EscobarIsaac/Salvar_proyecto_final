@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User, Sparkles, ArrowLeft, Check, X } from "lucide-react";
-import cosmicLandscape from "@/assets/cosmic-landscape.jpg";
+import { Eye, EyeOff, Mail, Lock, User, Sparkles, ArrowLeft, Check, X, Shield } from "lucide-react";
+import fondo1 from "@/assets/fondo1.jpg";
 import FacialCaptureModal from "@/components/FacialCaptureModal";
+import { API_ENDPOINTS } from "@/config/api";
 
 interface PasswordRequirements {
   minLength: boolean;
@@ -115,7 +116,7 @@ const RegisterPage = () => {
 
     try {
       // Registrar con la imagen facial capturada
-      const registerResponse = await fetch("http://localhost:8000/api/auth/register", {
+      const registerResponse = await fetch(API_ENDPOINTS.REGISTER, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

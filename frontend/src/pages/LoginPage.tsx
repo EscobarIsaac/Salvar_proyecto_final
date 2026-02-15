@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles } from "lucide-react";
-import cosmicLandscape from "@/assets/cosmic-landscape.jpg";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles, Shield } from "lucide-react";
+import fondo1 from "@/assets/fondo1.jpg";
 import FacialCaptureModal from "@/components/FacialCaptureModal";
+import { API_ENDPOINTS } from "@/config/api";
 
 interface LoginResponse {
   access_token: string;
@@ -29,16 +30,16 @@ const LoginPage = () => {
 
   const slides = [
     {
-      title: "Descubre mundos infinitos",
-      description: "Donde la creatividad no tiene límites y cada idea cobra vida.",
+      title: "Seguridad Biométrica Avanzada",
+      description: "Protección de datos con reconocimiento facial y autenticación multifactor.",
     },
     {
-      title: "Integrantes Del Equipo",
-      description: "Pamela Chipe, Kleber Chavez, Gabriel Reiniso.",
+      title: "Tecnología de Vanguardia",
+      description: "Soluciones innovadoras con inteligencia artificial y machine learning.",
     },
     {
-      title: "Proyectos Innovadores",
-      description: "Desarrollo de aplicaciones creativas y soluciones tecnológicas.",
+      title: "Tu Identidad, Tu Seguridad",
+      description: "Sistema robusto de autenticación con encriptación de nivel empresarial.",
     },
   ];
 
@@ -69,7 +70,7 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -108,7 +109,7 @@ const LoginPage = () => {
     try {
       // ✅ VERIFICACIÓN CRÍTICA: Enviar a nueva ruta que valida que el rostro pertenezca al usuario
       const response = await fetch(
-        `http://localhost:8000/api/auth/verify-facial-for-login?user_id=${loginData.user_id}`,
+        `${API_ENDPOINTS.VERIFY_FACIAL_LOGIN}?user_id=${loginData.user_id}`,
         {
           method: "POST",
           headers: {
@@ -183,11 +184,11 @@ const LoginPage = () => {
         {/* Imagen de fondo */}
         <div className="absolute inset-0 opacity-0 animate-fade-in animation-fill-both">
           <img
-            src={cosmicLandscape}
-            alt="Cosmic landscape"
+            src={fondo1}
+            alt="Nature background"
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/50 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-dark-bg/70 to-transparent" />
         </div>
 
         {/* Partículas flotantes */}
@@ -209,10 +210,10 @@ const LoginPage = () => {
         {/* Card con contenido */}
         <div className="absolute inset-8 flex flex-col justify-end opacity-0 animate-scale-in animation-delay-300 animation-fill-both">
           
-          {/* Badge Superior (Opcional, si quieres que flote arriba) */}
+          {/* Badge Superior */}
           <div className="absolute top-0 left-0 glass rounded-full px-4 py-2 flex items-center gap-2 animate-float-slow">
-            <Sparkles className="w-4 h-4 text-coral" />
-            <span className="text-white text-xs font-bold uppercase tracking-wider">Portal Creativo</span>
+            <Shield className="w-4 h-4 text-[#C0B87A]" />
+            <span className="text-white text-xs font-bold uppercase tracking-wider">Sistema Seguro</span>
           </div>
 
           {/* Contenedor Principal */}
@@ -236,7 +237,7 @@ const LoginPage = () => {
                     onClick={() => handleDotClick(i)}
                     className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
                       i === currentSlide 
-                        ? "w-10 bg-coral shadow-[0_0_10px_rgba(255,127,80,0.5)]" 
+                        ? "w-10 bg-[#005F02] shadow-[0_0_10px_rgba(0,95,2,0.5)]" 
                         : "w-2 bg-white/30 hover:bg-white/50"
                     }`}
                     aria-label={`Go to slide ${i + 1}`}
@@ -250,7 +251,7 @@ const LoginPage = () => {
 
         {/* Círculos decorativos animados */}
         <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full border border-white/10 animate-rotate-slow" />
-        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full border border-coral/20 animate-rotate-slow" style={{ animationDirection: 'reverse' }} />
+        <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full border border-[#005F02]/20 animate-rotate-slow" style={{ animationDirection: 'reverse' }} />
       </div>
 
       {/* Panel derecho - Formulario */}
@@ -259,14 +260,14 @@ const LoginPage = () => {
           {/* Logo */}
           <div className="text-center mb-12 opacity-0 animate-fade-in animation-fill-both">
             <h1 className="font-display text-3xl font-bold tracking-tight">
-              Proyecto Desarrollo de <span className="text-coral"> Software Seguro</span>
+              Proyecto Desarrollo de <span className="text-[#005F02]"> Software Seguro</span>
             </h1>
           </div>
 
           {/* Título de bienvenida */}
           <div className="text-center mb-10 opacity-0 animate-fade-in animation-delay-200 animation-fill-both">
             <h2 className="font-display text-4xl md:text-5xl font-bold mb-3">
-              Hola <span className="text-coral">Estudiante</span>
+              Hola <span className="text-[#005F02]">Estudiante</span>
             </h2>
             <p className="text-muted-foreground text-lg">
               Bienvenido de vuelta 
@@ -291,13 +292,13 @@ const LoginPage = () => {
             {/* Campo Email */}
             <div className="opacity-0 animate-slide-up animation-delay-300 animation-fill-both">
               <div className="relative group input-glow rounded-xl transition-all duration-300">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-coral transition-colors duration-300" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-[#005F02] transition-colors duration-300" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Email"
-                  className="w-full pl-12 pr-4 py-4 bg-secondary border border-border rounded-xl focus:outline-none focus:border-coral transition-all duration-300 text-foreground placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-4 py-4 bg-secondary border border-border rounded-xl focus:outline-none focus:border-[#005F02] transition-all duration-300 text-foreground placeholder:text-muted-foreground"
                   required
                 />
               </div>
@@ -306,25 +307,25 @@ const LoginPage = () => {
             {/* Campo Password */}
             <div className="opacity-0 animate-slide-up animation-delay-400 animation-fill-both">
               <div className="relative group input-glow rounded-xl transition-all duration-300">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-coral transition-colors duration-300" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-[#005F02] transition-colors duration-300" />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Contraseña"
-                  className="w-full pl-12 pr-12 py-4 bg-secondary border border-border rounded-xl focus:outline-none focus:border-coral transition-all duration-300 text-foreground placeholder:text-muted-foreground"
+                  className="w-full pl-12 pr-12 py-4 bg-secondary border border-border rounded-xl focus:outline-none focus:border-[#005F02] transition-all duration-300 text-foreground placeholder:text-muted-foreground"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-coral transition-colors duration-300"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#005F02] transition-colors duration-300"
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
               <div className="flex justify-end mt-2">
-                <button type="button" className="text-sm text-coral hover:underline transition-all">
+                <button type="button" className="text-sm text-[#005F02] hover:underline transition-all">
                   ¿Olvidaste tu contraseña?
                 </button>
               </div>
@@ -367,8 +368,8 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className={`w-full py-4 bg-coral text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 hover:bg-coral-dark hover:scale-[1.02] opacity-0 animate-slide-up animation-delay-600 animation-fill-both ${
-                isLoading ? "animate-pulse-glow" : "hover:shadow-lg hover:shadow-coral/30"
+              className={`w-full py-4 bg-[#005F02] text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 hover:bg-[#004501] hover:scale-[1.02] opacity-0 animate-slide-up animation-delay-600 animation-fill-both ${
+                isLoading ? "animate-pulse-glow" : "hover:shadow-lg hover:shadow-[#005F02]/30"
               }`}
             >
               {isLoading ? (
@@ -388,7 +389,7 @@ const LoginPage = () => {
           {/* Link de registro */}
           <p className="text-center mt-8 text-muted-foreground opacity-0 animate-fade-in animation-delay-700 animation-fill-both">
             ¿No tienes cuenta?{" "}
-            <Link to="/register" className="text-coral font-semibold hover:underline transition-all">
+            <Link to="/register" className="text-[#005F02] font-semibold hover:underline transition-all">
               Regístrate
             </Link>
           </p>
@@ -398,7 +399,7 @@ const LoginPage = () => {
             {["facebook", "twitter", "linkedin", "instagram"].map((social, i) => (
               <button
                 key={social}
-                className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-coral hover:bg-muted transition-all duration-300 hover:scale-110 hover:-translate-y-1"
+                className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-[#005F02] hover:bg-muted transition-all duration-300 hover:scale-110 hover:-translate-y-1"
                 style={{ animationDelay: `${800 + i * 100}ms` }}
               >
                 {social === "facebook" && (

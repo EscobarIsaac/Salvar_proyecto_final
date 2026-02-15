@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 10%;
 
-    --primary: 10 78% 54%;
+    --primary: 121 100% 19%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
@@ -24,7 +24,7 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 10% 50%;
 
-    --accent: 10 78% 54%;
+    --accent: 121 100% 19%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -32,47 +32,48 @@
 
     --border: 220 14% 90%;
     --input: 220 14% 90%;
-    --ring: 10 78% 54%;
+    --ring: 121 100% 19%;
 
     --radius: 1rem;
 
-    /* Custom colors */
-    --coral: 10 78% 54%;
-    --coral-light: 10 78% 64%;
-    --coral-dark: 10 78% 44%;
-    --dark-bg: 220 30% 8%;
-    --dark-surface: 220 25% 12%;
-    --star-color: 45 100% 72%;
+    /* Custom colors - Green Nature Palette */
+    --primary-green: 121 100% 19%;
+    --medium-green: 121 30% 37%;
+    --gold-beige: 53 36% 62%;
+    --light-beige: 44 67% 84%;
+    --dark-bg: 121 60% 10%;
+    --dark-surface: 121 40% 15%;
+    --star-color: 53 100% 72%;
   }
 
   .dark {
-    --background: 220 30% 8%;
+    --background: 121 60% 10%;
     --foreground: 0 0% 98%;
 
-    --card: 220 25% 12%;
+    --card: 121 40% 15%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 220 25% 12%;
+    --popover: 121 40% 15%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 10 78% 54%;
+    --primary: 121 100% 19%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 20% 18%;
+    --secondary: 121 20% 25%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 220 20% 18%;
+    --muted: 121 20% 25%;
     --muted-foreground: 220 10% 60%;
 
-    --accent: 10 78% 54%;
+    --accent: 121 100% 19%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 20%;
-    --input: 220 20% 20%;
-    --ring: 10 78% 54%;
+    --border: 121 20% 30%;
+    --input: 121 20% 30%;
+    --ring: 121 100% 19%;
   }
 }
 
@@ -133,8 +134,8 @@
 
 @layer components {
   /* Glow effect for buttons */
-  .glow-coral {
-    box-shadow: 0 0 30px hsl(var(--coral) / 0.4), 0 0 60px hsl(var(--coral) / 0.2);
+  .glow-green {
+    box-shadow: 0 0 30px hsl(var(--primary-green) / 0.4), 0 0 60px hsl(var(--primary-green) / 0.2);
   }
 
   /* Floating particles */
@@ -154,6 +155,6 @@
 
   /* Input focus glow */
   .input-glow:focus-within {
-    box-shadow: 0 0 0 3px hsl(var(--coral) / 0.15);
+    box-shadow: 0 0 0 3px hsl(var(--primary-green) / 0.15);
   }
 }

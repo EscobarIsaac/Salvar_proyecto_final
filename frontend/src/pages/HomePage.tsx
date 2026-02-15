@@ -83,14 +83,14 @@ const HomePage = () => {
       ))}
 
       {/* Círculos decorativos de fondo */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-coral/5 blur-3xl animate-float" />
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-coral/10 blur-3xl animate-float-slow" />
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-[#005F02]/5 blur-3xl animate-float" />
+      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full bg-[#005F02]/10 blur-3xl animate-float-slow" />
 
       {/* Partículas brillantes */}
       {[...Array(15)].map((_, i) => (
         <Sparkles
           key={i}
-          className="absolute text-coral/30 animate-twinkle"
+          className="absolute text-[#C0B87A]/40 animate-twinkle"
           style={{
             top: `${Math.random() * 100}%`,
             left: `${Math.random() * 100}%`,
@@ -109,11 +109,11 @@ const HomePage = () => {
           }`}
         >
           <div className="relative">
-            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-coral to-coral-dark flex items-center justify-center animate-pulse-glow">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#005F02] to-[#004501] flex items-center justify-center animate-pulse-glow">
               <CheckCircle2 className="w-16 h-16 text-white animate-success-bounce" />
             </div>
             {/* Anillo giratorio */}
-            <div className="absolute inset-0 -m-4 border-4 border-dashed border-coral/30 rounded-full animate-rotate-slow" />
+            <div className="absolute inset-0 -m-4 border-4 border-dashed border-[#005F02]/30 rounded-full animate-rotate-slow" />
           </div>
         </div>
 
@@ -123,9 +123,9 @@ const HomePage = () => {
             showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
           }`}
         >
-          <PartyPopper className="w-8 h-8 text-coral animate-bounce-subtle" />
-          <Sparkles className="w-8 h-8 text-coral animate-bounce-subtle animation-delay-200" />
-          <PartyPopper className="w-8 h-8 text-coral animate-bounce-subtle animation-delay-400" style={{ transform: "scaleX(-1)" }} />
+          <PartyPopper className="w-8 h-8 text-[#005F02] animate-bounce-subtle" />
+          <Sparkles className="w-8 h-8 text-[#005F02] animate-bounce-subtle animation-delay-200" />
+          <PartyPopper className="w-8 h-8 text-[#005F02] animate-bounce-subtle animation-delay-400" style={{ transform: "scaleX(-1)" }} />
         </div>
 
         {/* Título */}
@@ -134,7 +134,7 @@ const HomePage = () => {
             showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"
           }`}
         >
-          <span className="bg-gradient-to-r from-coral via-coral-light to-coral bg-clip-text text-transparent animate-gradient-shift bg-[length:200%_auto]">
+          <span className="bg-gradient-to-r from-[#005F02] via-[#427A43] to-[#005F02] bg-clip-text text-transparent animate-gradient-shift bg-[length:200%_auto]">
             ¡ÉXITO!
           </span>
         </h1>
@@ -165,14 +165,14 @@ const HomePage = () => {
         >
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-coral"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#005F02]"></div>
             </div>
           ) : userData ? (
             <>
               {/* Encabezado del perfil */}
               <div className="flex items-start justify-between mb-8 pb-6 border-b border-border">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-coral to-coral-dark flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#005F02] to-[#004501] flex items-center justify-center">
                     <User className="w-8 h-8 text-white" />
                   </div>
                   <div>
@@ -193,7 +193,7 @@ const HomePage = () => {
               <div className="space-y-4">
                 {/* Email */}
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                  <Mail className="w-5 h-5 text-coral flex-shrink-0" />
+                  <Mail className="w-5 h-5 text-[#005F02] flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Email</p>
                     <p className="text-sm font-medium text-foreground break-all">{userData.email}</p>
@@ -202,7 +202,7 @@ const HomePage = () => {
 
                 {/* Usuario ID */}
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                  <User className="w-5 h-5 text-coral flex-shrink-0" />
+                  <User className="w-5 h-5 text-[#005F02] flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">ID de Usuario</p>
                     <p className="text-sm font-medium text-foreground font-mono truncate">{userData.user_id}</p>
@@ -211,7 +211,7 @@ const HomePage = () => {
 
                 {/* Fecha de creación */}
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                  <Calendar className="w-5 h-5 text-coral flex-shrink-0" />
+                  <Calendar className="w-5 h-5 text-[#005F02] flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Miembro desde</p>
                     <p className="text-sm font-medium text-foreground">
@@ -228,7 +228,7 @@ const HomePage = () => {
 
                 {/* Seguridad - Dos factores */}
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                  <Lock className="w-5 h-5 text-coral flex-shrink-0" />
+                  <Lock className="w-5 h-5 text-[#005F02] flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Autenticación en dos pasos</p>
                     <p className={`text-sm font-medium ${userData.two_factor_enabled ? "text-green-600" : "text-yellow-600"}`}>
@@ -239,7 +239,7 @@ const HomePage = () => {
 
                 {/* Reconocimiento facial */}
                 <div className="flex items-center gap-4 p-4 rounded-lg bg-secondary hover:bg-muted transition-colors">
-                  <Zap className="w-5 h-5 text-coral flex-shrink-0" />
+                  <Zap className="w-5 h-5 text-[#005F02] flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Reconocimiento facial</p>
                     <p className={`text-sm font-medium ${userData.facial_recognition_enabled ? "text-green-600" : "text-yellow-600"}`}>
@@ -274,7 +274,7 @@ const HomePage = () => {
             localStorage.removeItem("access_token");
             navigate("/login");
           }}
-          className={`mt-8 px-8 py-3 rounded-full bg-transparent border-2 border-coral text-coral font-semibold hover:bg-coral hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-coral/30 opacity-0 animate-fade-in animation-delay-800 animation-fill-both`}
+          className={`mt-8 px-8 py-3 rounded-full bg-transparent border-2 border-[#005F02] text-[#005F02] font-semibold hover:bg-[#005F02] hover:text-white transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[#005F02]/30 opacity-0 animate-fade-in animation-delay-800 animation-fill-both`}
         >
           Cerrar sesión
         </button>
