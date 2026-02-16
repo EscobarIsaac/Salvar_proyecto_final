@@ -1,6 +1,18 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, User, Check, X, Shield, Leaf, UserPlus } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  Check,
+  X,
+  Shield,
+  Leaf,
+  UserPlus,
+  Fingerprint,
+} from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
 import FacialCaptureModal from "@/components/FacialCaptureModal";
 import { API_ENDPOINTS } from "@/config/api";
@@ -21,6 +33,132 @@ interface RegistrationResponse {
   is_active: boolean;
   message: string;
   next_step: string;
+  // a veces backend manda detail en error; lo dejo opcional por seguridad
+  detail?: string;
+}
+
+/** =========================
+ * Helpers WebAuthn
+ * ========================= */
+function bufferToBase64url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let str = "";
+  bytes.forEach((b) => (str += String.fromCharCode(b)));
+  const base64 = btoa(str);
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64urlToBuffer(base64url: string): ArrayBuffer {
+  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(base64 + pad);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function normalizeRegisterOptions(options: any) {
+  const pk = options.publicKey ?? options;
+
+  return {
+    publicKey: {
+      ...pk,
+      challenge: base64urlToBuffer(pk.challenge),
+      user: {
+        ...pk.user,
+        id: base64urlToBuffer(pk.user.id),
+      },
+      excludeCredentials: (pk.excludeCredentials || []).map((c: any) => ({
+        ...c,
+        id: base64urlToBuffer(c.id),
+      })),
+    },
+  };
+}
+
+function credentialToJSON(cred: PublicKeyCredential) {
+  const response: any = cred.response;
+
+  const clientDataJSON = bufferToBase64url(response.clientDataJSON);
+  const attestationObject = response.attestationObject
+    ? bufferToBase64url(response.attestationObject)
+    : undefined;
+
+  return {
+    id: cred.id,
+    rawId: bufferToBase64url(cred.rawId),
+    type: cred.type,
+    response: {
+      clientDataJSON,
+      attestationObject,
+    },
+  };
+}
+
+/** =========================
+ * Modal simple: ¿Configurar huella?
+ * ========================= */
+function PasskeyOptionalModal({
+  open,
+  onClose,
+  onSetup,
+  onSkip,
+  isLoading,
+  error,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSetup: () => void;
+  onSkip: () => void;
+  isLoading: boolean;
+  error: string;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-gradient-to-r from-[#005F02] to-[#427A43] p-5 text-white">
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <Fingerprint className="w-5 h-5" />
+            Configurar huella (opcional)
+          </h3>
+          <p className="text-sm text-white/90 mt-1">
+            Puedes registrar una Passkey para desbloquear luego con tu Android (huella).
+          </p>
+        </div>
+
+        <div className="p-5 space-y-3">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              ❌ {error}
+            </div>
+          )}
+
+          <button
+            className="w-full py-3 rounded-xl font-semibold bg-[#005F02] text-white hover:bg-[#004501] transition"
+            onClick={onSetup}
+            disabled={isLoading}
+          >
+            {isLoading ? "Procesando..." : "Sí, configurar ahora"}
+          </button>
+
+          <button
+            className="w-full py-3 rounded-xl font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200 transition"
+            onClick={onSkip}
+            disabled={isLoading}
+          >
+            Omitir por ahora
+          </button>
+
+          <p className="text-xs text-gray-500">
+            En PC, Chrome puede mostrar un QR para usar tu Android y confirmar con huella.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 const RegisterPage = () => {
@@ -36,10 +174,15 @@ const RegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [registrationData, setRegistrationData] = useState<RegistrationResponse | null>(null);
+
   const [isSavingFacial, setIsSavingFacial] = useState(false);
+
+  // (La tenías pero no se usaba, la dejo igual)
   const [facialImageBase64, setFacialImageBase64] = useState<string>("");
+
   const [passwordRequirements, setPasswordRequirements] = useState<PasswordRequirements>({
     minLength: false,
     hasUppercase: false,
@@ -47,6 +190,11 @@ const RegisterPage = () => {
     hasNumber: false,
     hasSpecialChar: false,
   });
+
+  // ✅ NUEVO: modal opcional Passkey
+  const [showPasskeyModal, setShowPasskeyModal] = useState(false);
+  const [isSettingPasskey, setIsSettingPasskey] = useState(false);
+  const [passkeyError, setPasskeyError] = useState("");
 
   // Validar requisitos de contraseña
   useEffect(() => {
@@ -61,7 +209,7 @@ const RegisterPage = () => {
   }, [formData.password]);
 
   const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
-  const isFormValid = 
+  const isFormValid =
     formData.full_name &&
     formData.email &&
     formData.username &&
@@ -77,20 +225,29 @@ const RegisterPage = () => {
     }));
   };
 
+  const goToLoginWithMessage = async (message: string) => {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    navigate("/", { state: { message } });
+  };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     // Primero pedir captura facial ANTES de registrar en BD
     setShowFacialModal(true);
   };
 
+  /** =========================
+   * Registro con imagen facial
+   * ========================= */
   const handleFacialCapture = async (imageBase64: string) => {
     setIsSavingFacial(true);
     setError("");
 
     try {
-      // Registrar con la imagen facial capturada
+      setFacialImageBase64(imageBase64);
+
       const registerResponse = await fetch(API_ENDPOINTS.REGISTER, {
         method: "POST",
         headers: {
@@ -101,58 +258,121 @@ const RegisterPage = () => {
           username: formData.username,
           password: formData.password,
           full_name: formData.full_name,
-          facial_image_base64: imageBase64,  // Incluir imagen facial en registro
+          facial_image_base64: imageBase64,
         }),
       });
 
-      const data: RegistrationResponse = await registerResponse.json();
+      const data: any = await registerResponse.json();
 
       if (!registerResponse.ok) {
-        // Manejo específico de errores
         if (registerResponse.status === 409) {
-          // Detectar si es error de rostro duplicado
-          const errorDetail = data.detail || "";
-          if (errorDetail.includes("rostro")) {
+          const errorDetail = data.detail || data.message || "";
+          if (String(errorDetail).includes("rostro")) {
             throw new Error(
               "❌ Este rostro ya está registrado en el sistema. " +
-              "Por favor, intenta con una foto diferente o crea una cuenta diferente."
+                "Por favor, intenta con una foto diferente o crea una cuenta diferente."
             );
           } else {
             throw new Error("El email o nombre de usuario ya está registrado. Intenta con otro.");
           }
         } else if (registerResponse.status === 400) {
-          throw new Error(data.message || "Datos inválidos. Verifica el formulario.");
+          throw new Error(data.message || data.detail || "Datos inválidos. Verifica el formulario.");
         } else {
           throw new Error(data.detail || data.message || "Error al registrar usuario");
         }
       }
 
       // ✅ Registro exitoso con captura facial
-      setRegistrationData(data);
+      setRegistrationData(data as RegistrationResponse);
       setShowFacialModal(false);
-      
-      // Mostrar mensaje de éxito y redirigir a login
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      navigate("/", { state: { message: "✅ Registro completado. Por favor, inicia sesión." } });
+
+      // ✅ NUEVO: después del registro facial, ofrecer huella opcional
+      setPasskeyError("");
+      setShowPasskeyModal(true);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error al registrar usuario";
       setError(errorMessage);
       console.error("❌ Error en registro:", errorMessage);
-      // El modal sigue abierto para permitir reintentar con otra foto
     } finally {
       setIsSavingFacial(false);
     }
+  };
+
+  /** =========================
+   * Passkey (opcional): configurar
+   * ========================= */
+  const setupPasskey = async () => {
+    if (!registrationData) return;
+
+    setIsSettingPasskey(true);
+    setPasskeyError("");
+
+    try {
+      // 1) pedir options al backend
+      const optRes = await fetch(API_ENDPOINTS.WEBAUTHN_REGISTER_OPTIONS, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: registrationData.user_id,
+          email: registrationData.email,
+          username: registrationData.username,
+        }),
+      });
+
+      const optJson = await optRes.json();
+      if (!optRes.ok) {
+        throw new Error(optJson?.detail || "No se pudo obtener options de registro Passkey");
+      }
+
+      // 2) crear credencial en navegador
+      const normalized = normalizeRegisterOptions(optJson);
+
+      const cred = (await navigator.credentials.create(
+        normalized as unknown as CredentialCreationOptions
+      )) as PublicKeyCredential;
+
+      if (!cred) throw new Error("No se pudo crear la credencial Passkey");
+
+      // 3) enviar verify al backend
+      const verifyRes = await fetch(API_ENDPOINTS.WEBAUTHN_REGISTER_VERIFY, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: registrationData.user_id,
+          credential: credentialToJSON(cred),
+        }),
+      });
+
+      const verifyJson = await verifyRes.json();
+      if (!verifyRes.ok) {
+        throw new Error(verifyJson?.detail || "No se pudo registrar la Passkey");
+      }
+
+      // ✅ listo, ir a login
+      setShowPasskeyModal(false);
+      await goToLoginWithMessage("✅ Registro completado con rostro + huella. Por favor, inicia sesión.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to setup passkey";
+
+      // Si sigue saliendo Failed to fetch aquí, casi siempre es CORS
+      // (o que el backend no tenga incluidas las rutas /api/webauthn)
+      setPasskeyError(msg);
+      console.error("setupPasskey:", msg);
+    } finally {
+      setIsSettingPasskey(false);
+    }
+  };
+
+  const skipPasskey = async () => {
+    setShowPasskeyModal(false);
+    await goToLoginWithMessage("✅ Registro completado con rostro. Puedes configurar huella después.");
   };
 
   return (
     <div className="min-h-screen relative">
       {/* Background Image - Full Screen */}
       <div className="fixed inset-0 z-0">
-        <img
-          src={fondo1}
-          alt="Nature background"
-          className="w-full h-full object-cover"
-        />
+        <img src={fondo1} alt="Nature background" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       </div>
 
@@ -175,19 +395,19 @@ const RegisterPage = () => {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-[#005F02] to-[#427A43] mb-4">
                 <UserPlus className="w-8 h-8 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Crear Cuenta
-              </h1>
-              <p className="text-gray-600">
-                Únete con seguridad biométrica
-              </p>
+              <h1 className="text-3xl font-bold text-gray-900">Crear Cuenta</h1>
+              <p className="text-gray-600">Únete con seguridad biométrica</p>
             </div>
 
             {/* Error Message */}
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <div>
                   <p className="text-red-800 text-sm font-semibold">Error</p>
@@ -200,9 +420,7 @@ const RegisterPage = () => {
             <form onSubmit={handleRegister} className="space-y-4">
               {/* Full Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre Completo
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre Completo</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -219,9 +437,7 @@ const RegisterPage = () => {
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Correo Electrónico
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Correo Electrónico</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -238,9 +454,7 @@ const RegisterPage = () => {
 
               {/* Username */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre de Usuario
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nombre de Usuario</label>
                 <div className="relative">
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -257,9 +471,7 @@ const RegisterPage = () => {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contraseña
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contraseña</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -342,9 +554,7 @@ const RegisterPage = () => {
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirmar Contraseña
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar Contraseña</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -399,10 +609,7 @@ const RegisterPage = () => {
             {/* Login Link */}
             <p className="text-center text-gray-600 text-sm">
               ¿Ya tienes cuenta?{" "}
-              <Link 
-                to="/" 
-                className="text-[#005F02] font-semibold hover:text-[#004501] hover:underline transition-colors"
-              >
+              <Link to="/" className="text-[#005F02] font-semibold hover:text-[#004501] hover:underline transition-colors">
                 Inicia sesión
               </Link>
             </p>
@@ -427,6 +634,16 @@ const RegisterPage = () => {
         mode="capture"
         title="📸 Registro Facial"
         description="Por favor, mire directamente a la cámara para completar su registro"
+      />
+
+      {/* ✅ Passkey Optional Modal */}
+      <PasskeyOptionalModal
+        open={showPasskeyModal}
+        onClose={() => setShowPasskeyModal(false)}
+        onSetup={setupPasskey}
+        onSkip={skipPasskey}
+        isLoading={isSettingPasskey}
+        error={passkeyError}
       />
     </div>
   );

@@ -16,3 +16,9 @@ FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL")
 # Application Settings
 DEBUG = os.getenv("DEBUG", "True") == "True"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+# WebAuthn / Passkeys
+WEBAUTHN_RP_ID = "localhost"
+WEBAUTHN_RP_NAME = "Salvar Proyecto Final"
+WEBAUTHN_ORIGIN = "http://localhost:8081"  # tu frontend (cámbialo si usas otro puerto)
+

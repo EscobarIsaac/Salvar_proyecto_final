@@ -113,3 +113,4 @@ typing-extensions==4.15.0
 typing-inspection==0.4.2
 urllib3==2.6.3
 google-crc32c==1.8.0
+webauthn>=2.0.0
