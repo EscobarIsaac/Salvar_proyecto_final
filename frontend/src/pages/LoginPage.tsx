@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, Shield, Leaf, KeyRound } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Shield, Leaf, KeyRound, Fingerprint } from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
 import FacialCaptureModal from "@/components/FacialCaptureModal";
 import { API_ENDPOINTS } from "@/config/api";
@@ -13,209 +13,35 @@ interface LoginResponse {
   message: string;
   next_step: string;
   facial_recognition_enabled: boolean;
+  two_factor_enabled: boolean;
 }
 
-/** =========================
- * Helpers WebAuthn
- * ========================= */
-function bufferToBase64url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let str = "";
-  bytes.forEach((b) => (str += String.fromCharCode(b)));
-  const base64 = btoa(str);
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function base64urlToBuffer(base64url: string): ArrayBuffer {
-  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(base64 + pad);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-function normalizeRegisterOptions(options: any) {
-  // Espera: { publicKey: { challenge: "b64url", user: { id: "b64url" }, ... } }
-  const pk = options.publicKey ?? options;
-
-  return {
-    publicKey: {
-      ...pk,
-      challenge: base64urlToBuffer(pk.challenge),
-      user: {
-        ...pk.user,
-        id: base64urlToBuffer(pk.user.id),
-      },
-      excludeCredentials: (pk.excludeCredentials || []).map((c: any) => ({
-        ...c,
-        id: base64urlToBuffer(c.id),
-      })),
-    },
-  };
-}
-
-function normalizeAuthOptions(options: any) {
-  // Espera: { publicKey: { challenge: "b64url", allowCredentials: [{id:"b64url"}], ... } }
-  const pk = options.publicKey ?? options;
-
-  return {
-    publicKey: {
-      ...pk,
-      challenge: base64urlToBuffer(pk.challenge),
-      allowCredentials: (pk.allowCredentials || []).map((c: any) => ({
-        ...c,
-        id: base64urlToBuffer(c.id),
-      })),
-    },
-  };
-}
-
-function credentialToJSON(cred: PublicKeyCredential) {
-  const response: any = cred.response;
-
-  const clientDataJSON = bufferToBase64url(response.clientDataJSON);
-  const authenticatorData = response.authenticatorData
-    ? bufferToBase64url(response.authenticatorData)
-    : undefined;
-  const signature = response.signature ? bufferToBase64url(response.signature) : undefined;
-  const userHandle = response.userHandle ? bufferToBase64url(response.userHandle) : undefined;
-  const attestationObject = response.attestationObject
-    ? bufferToBase64url(response.attestationObject)
-    : undefined;
-
-  return {
-    id: cred.id,
-    rawId: bufferToBase64url(cred.rawId),
-    type: cred.type,
-    response: {
-      clientDataJSON,
-      attestationObject,
-      authenticatorData,
-      signature,
-      userHandle,
-    },
-  };
-}
-
-/** =========================
- * UI Modal para elegir método
- * ========================= */
-type UnlockMethod = "camera" | "passkey";
-
-function UnlockMethodModal({
-  open,
-  onClose,
-  onChooseCamera,
-  onChoosePasskey,
-  onSetupPasskey,
-  passkeyLoading,
-  error,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onChooseCamera: () => void;
-  onChoosePasskey: () => void;
-  onSetupPasskey: () => void;
-  passkeyLoading: boolean;
-  error: string;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-700 to-indigo-600 p-5 text-white">
-          <h3 className="text-lg font-bold">Elige método de desbloqueo</h3>
-          <p className="text-sm text-white/90 mt-1">
-            Puedes usar cámara (rostro) o huella (Passkey con tu Android).
-          </p>
-        </div>
-
-        <div className="p-5 space-y-3">
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-              ❌ {error}
-            </div>
-          )}
-
-          <button
-            className="w-full py-3 rounded-xl font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
-            onClick={onChooseCamera}
-            disabled={passkeyLoading}
-          >
-            Desbloquear con Cámara
-          </button>
-
-          <button
-            className="w-full py-3 rounded-xl font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition"
-            onClick={onChoosePasskey}
-            disabled={passkeyLoading}
-          >
-            {passkeyLoading ? "Procesando..." : "Desbloquear con Huella (Passkey)"}
-          </button>
-
-          <button
-            className="w-full py-3 rounded-xl font-semibold bg-gray-100 text-gray-900 hover:bg-gray-200 transition"
-            onClick={onSetupPasskey}
-            disabled={passkeyLoading}
-          >
-            {passkeyLoading ? "Procesando..." : "Configurar Huella / Passkey (solo la primera vez)"}
-          </button>
-
-          <p className="text-xs text-gray-500 mt-2">
-            Nota: en PC, el navegador puede mostrar un QR para usar tu Android y confirmar con huella.
-          </p>
-
-          <div className="flex justify-end pt-2">
-            <button
-              className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-gray-300 text-gray-800"
-              onClick={onClose}
-              disabled={passkeyLoading}
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** =========================
- * LoginPage
- * ========================= */
 const LoginPage = () => {
   const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Auth flow
   const [loginData, setLoginData] = useState<LoginResponse | null>(null);
 
-  // Modal choice
-  const [showMethodModal, setShowMethodModal] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [methodError, setMethodError] = useState("");
-
-  // Facial modal
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [isVerifyingFacial, setIsVerifyingFacial] = useState(false);
 
-  // transition
+  const [show2FA, setShow2FA] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
+
   const [isExiting, setIsExiting] = useState(false);
 
-  const saveSessionAndGoHome = (data: LoginResponse) => {
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("token_type", data.token_type);
-    localStorage.setItem("user_id", data.user_id);
+  const finalizeLogin = () => {
+    if (!loginData) return;
+
+    localStorage.setItem("access_token", loginData.access_token);
+    localStorage.setItem("token_type", loginData.token_type);
+    localStorage.setItem("user_id", loginData.user_id);
 
     setIsExiting(true);
     setTimeout(() => navigate("/home"), 300);
@@ -224,8 +50,9 @@ const LoginPage = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setMethodError("");
     setIsLoading(true);
+    setLoginData(null);
+    setShow2FA(false);
 
     try {
       const response = await fetch(API_ENDPOINTS.LOGIN, {
@@ -237,26 +64,22 @@ const LoginPage = () => {
       const data: LoginResponse = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.message || "Credenciales inválidas.");
+        throw new Error((data as any)?.detail || data.message || "Credenciales inválidas.");
       }
 
       setLoginData(data);
 
-      // ✅ Ahora no obligamos a cámara de una
-      // mostramos modal: Cámara o Huella
-      setShowMethodModal(true);
+      // Si tiene rostro, mostramos opción de rostro. Si tiene 2FA, mostramos opción de Authenticator.
+      // No forzamos uno solo: el usuario elige.
+      setShow2FA(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setError(msg);
-      console.error("❌ Error en login:", msg);
     } finally {
       setIsLoading(false);
     }
   };
 
-  /** =========================
-   * 1) Cámara: verificación facial
-   * ========================= */
   const handleFacialVerification = async (imageBase64: string) => {
     if (!loginData) return;
 
@@ -276,146 +99,57 @@ const LoginPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        const detail = data?.detail || data?.message || "Error en verificación facial";
-        throw new Error(detail);
+        throw new Error(data.detail || "Error en verificación facial");
       }
 
       setShowFacialModal(false);
-      saveSessionAndGoHome(loginData);
+      finalizeLogin();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error en la verificación facial";
+      const msg = err instanceof Error ? err.message : "Error en verificación facial";
       setError("❌ " + msg);
-      console.error("Error en verificación facial:", msg);
     } finally {
       setIsVerifyingFacial(false);
     }
   };
 
-  /** =========================
-   * 2) Passkey: configurar (registro) — opcional
-   * ========================= */
-  const setupPasskey = async () => {
+  const verifyTotpForLogin = async () => {
     if (!loginData) return;
-    setMethodError("");
-    setPasskeyLoading(true);
+
+    setIsVerifyingTotp(true);
+    setError("");
 
     try {
-      // 1) pedir options al backend
-      const optRes = await fetch(API_ENDPOINTS.WEBAUTHN_REGISTER_OPTIONS, {
+      const response = await fetch(`${API_ENDPOINTS.TOTP_VERIFY_LOGIN}?user_id=${loginData.user_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: loginData.user_id,
-          email: email,
-          username: email,
-        }),
+        body: JSON.stringify({ code: totpCode.trim() }),
       });
 
-      const optJson = await optRes.json();
-      if (!optRes.ok) {
-        throw new Error(optJson?.detail || "No se pudo obtener options de registro Passkey");
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Código inválido");
       }
 
-      // 2) crear credencial en navegador
-      const normalized = normalizeRegisterOptions(optJson);
-
-      const cred = (await navigator.credentials.create(
-        normalized as unknown as CredentialCreationOptions
-      )) as PublicKeyCredential;
-
-      if (!cred) throw new Error("No se pudo crear la credencial Passkey");
-
-      // 3) enviar verify al backend
-      const verifyRes = await fetch(API_ENDPOINTS.WEBAUTHN_REGISTER_VERIFY, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: loginData.user_id,
-          credential: credentialToJSON(cred),
-        }),
-      });
-
-      const verifyJson = await verifyRes.json();
-      if (!verifyRes.ok) {
-        throw new Error(verifyJson?.detail || "No se pudo registrar la Passkey");
-      }
-
-      setMethodError("✅ Passkey registrada. Ya puedes desbloquear con huella.");
+      finalizeLogin();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to setup passkey";
-      setMethodError("❌ " + msg);
-      console.error("setupPasskey:", msg);
+      const msg = err instanceof Error ? err.message : "Error verificando código";
+      setError("❌ " + msg);
     } finally {
-      setPasskeyLoading(false);
+      setIsVerifyingTotp(false);
     }
   };
 
-  /** =========================
-   * 3) Passkey: autenticar (huella)
-   * ========================= */
-  const loginWithPasskey = async () => {
-    if (!loginData) return;
-    setMethodError("");
-    setPasskeyLoading(true);
-
-    try {
-      // 1) pedir options
-      const optRes = await fetch(API_ENDPOINTS.WEBAUTHN_AUTH_OPTIONS, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: loginData.user_id }),
-      });
-
-      const optJson = await optRes.json();
-      if (!optRes.ok) {
-        throw new Error(optJson?.detail || "No se pudo obtener options de autenticación Passkey");
-      }
-
-      // 2) pedir credencial (huella)
-      const normalized = normalizeAuthOptions(optJson);
-
-      const assertion = (await navigator.credentials.get(
-        normalized as unknown as CredentialRequestOptions
-      )) as PublicKeyCredential;
-
-      if (!assertion) throw new Error("No se pudo obtener la credencial Passkey");
-
-      // 3) verificar en backend
-      const verifyRes = await fetch(API_ENDPOINTS.WEBAUTHN_AUTH_VERIFY, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: loginData.user_id,
-          credential: credentialToJSON(assertion),
-        }),
-      });
-
-      const verifyJson = await verifyRes.json();
-      if (!verifyRes.ok) {
-        throw new Error(verifyJson?.detail || "No se pudo verificar la Passkey");
-      }
-
-      // ✅ login final
-      setShowMethodModal(false);
-      saveSessionAndGoHome(loginData);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to authenticate passkey";
-      setMethodError("❌ " + msg);
-      console.error("loginWithPasskey:", msg);
-    } finally {
-      setPasskeyLoading(false);
-    }
-  };
+  const canUseFace = !!loginData?.facial_recognition_enabled;
+  const canUseTotp = !!loginData?.two_factor_enabled;
 
   return (
     <div className={`min-h-screen relative transition-all duration-500 ${isExiting ? "opacity-0" : ""}`}>
-      {/* Background */}
       <div className="fixed inset-0 z-0">
         <img src={fondo1} alt="Nature background" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       </div>
 
-      {/* Header badge */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-full px-6 py-3 flex items-center gap-3 shadow-xl border border-[#005F02]/20">
           <Shield className="w-5 h-5 text-[#005F02]" />
@@ -424,7 +158,6 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Card */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 space-y-6">
@@ -436,9 +169,15 @@ const LoginPage = () => {
               <p className="text-gray-600">Ingresa a tu cuenta de forma segura</p>
             </div>
 
-            {/* Error (login/password o facial) */}
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
                 <div>
                   <p className="text-red-800 text-sm font-semibold">Error</p>
                   <p className="text-red-700 text-sm mt-1">{error}</p>
@@ -456,7 +195,7 @@ const LoginPage = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="tu@email.com"
-                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02]"
+                    className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02] focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     required
                   />
                 </div>
@@ -471,30 +210,24 @@ const LoginPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-12 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02]"
+                    className="w-full pl-12 pr-12 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02] focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#005F02]"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#005F02] transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button type="button" className="text-sm text-[#005F02] hover:text-[#004501] font-medium">
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>
-
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`w-full py-4 bg-gradient-to-r from-[#005F02] to-[#427A43] text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                  isLoading ? "opacity-75 cursor-not-allowed" : "hover:shadow-lg hover:shadow-[#005F02]/30"
+                className={`w-full py-4 bg-gradient-to-r from-[#005F02] to-[#427A43] text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all duration-300 hover:shadow-lg hover:shadow-[#005F02]/30 ${
+                  isLoading ? "opacity-75 cursor-not-allowed" : "hover:scale-[1.02]"
                 }`}
               >
                 {isLoading ? (
@@ -511,25 +244,80 @@ const LoginPage = () => {
               </button>
             </form>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500">o continúa con</span>
-              </div>
-            </div>
+            {/* Opciones de segundo factor */}
+            {show2FA && loginData && (
+              <div className="space-y-3 pt-2">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <p className="text-sm font-semibold text-gray-800">Elige un método de verificación</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Si usas Microsoft Authenticator, puedes activar huella en la app para ver el código.
+                  </p>
+                </div>
 
-            <button
-              type="button"
-              className="w-full py-3.5 bg-white border-2 border-gray-200 rounded-xl flex items-center justify-center gap-3 hover:bg-gray-50"
-            >
-              <span className="font-medium text-gray-700">Google</span>
-            </button>
+                <div className="grid grid-cols-1 gap-3">
+                  <button
+                    type="button"
+                    disabled={!canUseFace}
+                    onClick={() => setShowFacialModal(true)}
+                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                      canUseFace ? "bg-[#005F02] text-white hover:opacity-95" : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                    }`}
+                  >
+                    <Shield className="w-5 h-5" />
+                    Verificar con cámara
+                  </button>
+
+                  <div className="p-4 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Fingerprint className="w-5 h-5 text-[#005F02]" />
+                      <p className="font-semibold text-gray-800">Authenticator (huella)</p>
+                    </div>
+
+                    <input
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value)}
+                      maxLength={6}
+                      placeholder="Código de 6 dígitos"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02]"
+                      disabled={!canUseTotp}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={verifyTotpForLogin}
+                      disabled={!canUseTotp || totpCode.trim().length !== 6 || isVerifyingTotp}
+                      className={`mt-3 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                        !canUseTotp
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-gradient-to-r from-[#005F02] to-[#427A43] text-white hover:opacity-95"
+                      }`}
+                    >
+                      {isVerifyingTotp ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Verificando...
+                        </>
+                      ) : (
+                        <>
+                          <Fingerprint className="w-5 h-5" />
+                          Verificar con Authenticator
+                        </>
+                      )}
+                    </button>
+
+                    {!canUseTotp && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Este usuario no tiene Authenticator configurado.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <p className="text-center text-gray-600">
               ¿No tienes cuenta?{" "}
-              <Link to="/register" className="text-[#005F02] font-semibold hover:underline">
+              <Link to="/register" className="text-[#005F02] font-semibold hover:text-[#004501] hover:underline transition-colors">
                 Regístrate aquí
               </Link>
             </p>
@@ -544,21 +332,6 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Modal elegir método */}
-      <UnlockMethodModal
-        open={showMethodModal}
-        onClose={() => setShowMethodModal(false)}
-        onChooseCamera={() => {
-          setShowMethodModal(false);
-          setShowFacialModal(true);
-        }}
-        onChoosePasskey={loginWithPasskey}
-        onSetupPasskey={setupPasskey}
-        passkeyLoading={passkeyLoading}
-        error={methodError}
-      />
-
-      {/* Modal facial */}
       <FacialCaptureModal
         isOpen={showFacialModal}
         onCapture={handleFacialVerification}

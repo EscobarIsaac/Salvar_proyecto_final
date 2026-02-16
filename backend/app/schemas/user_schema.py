@@ -41,18 +41,21 @@ class RegistrationFlowResponseSchema(BaseModel):
     full_name: Optional[str]
     is_active: bool
     message: str
-    next_step: str = "facial_capture"  # Indica que el siguiente paso es capturar facial
-    
+    # ⚠️ Antes era facial_capture, pero ahora puede ser opcional (Authenticator también)
+    next_step: str = "post_register_options"
+
     class Config:
         from_attributes = True
 
 
 class LoginFlowResponseSchema(BaseModel):
-    """Respuesta después del login para captura facial"""
+    """Respuesta después del login para elegir segundo factor (rostro o Authenticator)"""
     access_token: str
     token_type: str
     expires_in: int
     user_id: str
     message: str
-    next_step: str = "facial_verification"  # Indica que el siguiente paso es verificar facial
+    # ⚠️ Antes era facial_verification, pero ahora el usuario elige método
+    next_step: str = "second_factor_choice"
     facial_recognition_enabled: bool  # Si ya tiene facial registrado
+    two_factor_enabled: bool          # ✅ NUEVO: Si ya tiene Authenticator configurado

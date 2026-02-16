@@ -114,3 +114,5 @@ typing-inspection==0.4.2
 urllib3==2.6.3
 google-crc32c==1.8.0
 webauthn>=2.0.0
+pyotp==2.9.0
+qrcode==8.0
