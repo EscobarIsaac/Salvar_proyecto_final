@@ -165,6 +165,10 @@ GET  /api/auth/health                    # Health check
 
 ## 👥 Equipo
 
+- **Pamela Chipe**
+- **Kleber Chavez**
+- **Gabriel Reiniso**
+
 ## 📄 Licencia
 
 Este proyecto es parte del curso de Desarrollo de Software Seguro.
