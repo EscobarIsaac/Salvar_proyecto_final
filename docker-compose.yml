@@ -9,7 +9,8 @@ services:
       - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - MONGO_URI=mongodb://mongo:27017/salvar_db
+      - MONGODB_URI=mongodb://mongo:27017/salvar_db
+      - MONGODB_DB=salvar_db
     depends_on:
       - mongo
     command: ["python", "-m", "app.main"]

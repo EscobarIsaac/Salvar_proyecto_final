@@ -9,4 +9,9 @@ export const API_ENDPOINTS = {
   TOTP_SETUP: `${BASE_URL}/api/auth/2fa/setup`,
   TOTP_VERIFY_SETUP: `${BASE_URL}/api/auth/2fa/verify`,
   TOTP_VERIFY_LOGIN: `${BASE_URL}/api/auth/2fa/verify-login`,
+
+  // Toggle 2FA / facial
+  TOTP_DISABLE: `${BASE_URL}/api/auth/2fa/disable`,
+  FACIAL_ENABLE: `${BASE_URL}/api/users/facial-recognition/enable`,
+  FACIAL_DISABLE: `${BASE_URL}/api/users/facial-recognition/disable`,
 };

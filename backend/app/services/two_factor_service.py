@@ -21,7 +21,8 @@ class TwoFactorService:
     async def _get_user(user_id: str) -> dict:
         user = await db["users"].find_one({"user_id": user_id})
         if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
         return user
 
     @staticmethod
@@ -34,13 +35,15 @@ class TwoFactorService:
             secret = pyotp.random_base32()
             await db["users"].update_one(
                 {"user_id": user_id},
-                {"$set": {"two_factor_secret": secret, "two_factor_enabled": False, "updated_at": datetime.now(timezone.utc)}},
+                {"$set": {"two_factor_secret": secret, "two_factor_enabled": False,
+                          "updated_at": datetime.now(timezone.utc)}},
             )
 
         account_name = user.get("email") or user.get("username") or user_id
 
         totp = pyotp.TOTP(secret)
-        otpauth_url = totp.provisioning_uri(name=account_name, issuer_name=TwoFactorService.ISSUER)
+        otpauth_url = totp.provisioning_uri(
+            name=account_name, issuer_name=TwoFactorService.ISSUER)
 
         # Generar QR PNG en memoria
         qr = qrcode.QRCode(border=2, box_size=6)
@@ -77,7 +80,8 @@ class TwoFactorService:
         ok = totp.verify(code, valid_window=1)
 
         if not ok:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido. Intenta de nuevo.")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                                detail="Código inválido. Intenta de nuevo.")
 
         await db["users"].update_one(
             {"user_id": user_id},
@@ -97,16 +101,42 @@ class TwoFactorService:
         user = await TwoFactorService._get_user(user_id)
 
         if not user.get("two_factor_enabled", False):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="2FA no habilitado para este usuario.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail="2FA no habilitado para este usuario.")
 
         secret = user.get("two_factor_secret")
         if not secret:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Secret 2FA no encontrado.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Secret 2FA no encontrado.")
 
         totp = pyotp.TOTP(secret)
         ok = totp.verify(code, valid_window=1)
 
         if not ok:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido.")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Código inválido.")
 
         return {"verified": True, "message": "✅ Código válido. Acceso permitido."}
+
+    @staticmethod
+    async def disable_totp(user_id: str) -> dict:
+        """
+        Deshabilita 2FA TOTP para el usuario y limpia el secret almacenado.
+        """
+        await TwoFactorService._get_user(user_id)
+
+        await db["users"].update_one(
+            {"user_id": user_id},
+            {
+                "$set": {
+                    "two_factor_enabled": False,
+                    "updated_at": datetime.now(timezone.utc),
+                },
+                "$unset": {
+                    "two_factor_secret": "",
+                    "two_factor_verified_at": "",
+                },
+            },
+        )
+
+        return {"disabled": True, "message": "2FA deshabilitado para el usuario."}

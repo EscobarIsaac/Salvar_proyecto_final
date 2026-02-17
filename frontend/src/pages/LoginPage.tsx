@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, Shield, Leaf, KeyRound, Fingerprint } from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
@@ -34,6 +34,8 @@ const LoginPage = () => {
   const [totpCode, setTotpCode] = useState("");
   const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
 
+  const [selectedMethod, setSelectedMethod] = useState<"facial" | "totp" | null>(null);
+
   const [isExiting, setIsExiting] = useState(false);
 
   const finalizeLogin = () => {
@@ -53,6 +55,9 @@ const LoginPage = () => {
     setIsLoading(true);
     setLoginData(null);
     setShow2FA(false);
+    setSelectedMethod(null);
+    setShowFacialModal(false);
+    setTotpCode("");
 
     try {
       const response = await fetch(API_ENDPOINTS.LOGIN, {
@@ -68,10 +73,6 @@ const LoginPage = () => {
       }
 
       setLoginData(data);
-
-      // Si tiene rostro, mostramos opción de rostro. Si tiene 2FA, mostramos opción de Authenticator.
-      // No forzamos uno solo: el usuario elige.
-      setShow2FA(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setError(msg);
@@ -142,6 +143,36 @@ const LoginPage = () => {
 
   const canUseFace = !!loginData?.facial_recognition_enabled;
   const canUseTotp = !!loginData?.two_factor_enabled;
+
+  useEffect(() => {
+    if (!loginData) return;
+
+    const faceEnabled = !!loginData.facial_recognition_enabled;
+    const totpEnabled = !!loginData.two_factor_enabled;
+
+    if (!faceEnabled && !totpEnabled) {
+      finalizeLogin();
+      return;
+    }
+
+    setShow2FA(true);
+
+    if (faceEnabled && totpEnabled) {
+      setSelectedMethod(null);
+    } else if (faceEnabled) {
+      setSelectedMethod("facial");
+      setShowFacialModal(true);
+    } else if (totpEnabled) {
+      setSelectedMethod("totp");
+    }
+  }, [loginData]);
+
+  const chooseMethod = (method: "facial" | "totp") => {
+    setSelectedMethod(method);
+    if (method === "facial") {
+      setShowFacialModal(true);
+    }
+  };
 
   return (
     <div className={`min-h-screen relative transition-all duration-500 ${isExiting ? "opacity-0" : ""}`}>
@@ -244,76 +275,6 @@ const LoginPage = () => {
               </button>
             </form>
 
-            {/* Opciones de segundo factor */}
-            {show2FA && loginData && (
-              <div className="space-y-3 pt-2">
-                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <p className="text-sm font-semibold text-gray-800">Elige un método de verificación</p>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Si usas Microsoft Authenticator, puedes activar huella en la app para ver el código.
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  <button
-                    type="button"
-                    disabled={!canUseFace}
-                    onClick={() => setShowFacialModal(true)}
-                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                      canUseFace ? "bg-[#005F02] text-white hover:opacity-95" : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                    }`}
-                  >
-                    <Shield className="w-5 h-5" />
-                    Verificar con cámara
-                  </button>
-
-                  <div className="p-4 rounded-xl border border-gray-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Fingerprint className="w-5 h-5 text-[#005F02]" />
-                      <p className="font-semibold text-gray-800">Authenticator (huella)</p>
-                    </div>
-
-                    <input
-                      value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value)}
-                      maxLength={6}
-                      placeholder="Código de 6 dígitos"
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02]"
-                      disabled={!canUseTotp}
-                    />
-
-                    <button
-                      type="button"
-                      onClick={verifyTotpForLogin}
-                      disabled={!canUseTotp || totpCode.trim().length !== 6 || isVerifyingTotp}
-                      className={`mt-3 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
-                        !canUseTotp
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-gradient-to-r from-[#005F02] to-[#427A43] text-white hover:opacity-95"
-                      }`}
-                    >
-                      {isVerifyingTotp ? (
-                        <>
-                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                          Verificando...
-                        </>
-                      ) : (
-                        <>
-                          <Fingerprint className="w-5 h-5" />
-                          Verificar con Authenticator
-                        </>
-                      )}
-                    </button>
-
-                    {!canUseTotp && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Este usuario no tiene Authenticator configurado.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             <p className="text-center text-gray-600">
               ¿No tienes cuenta?{" "}
@@ -332,16 +293,120 @@ const LoginPage = () => {
         </div>
       </div>
 
-      <FacialCaptureModal
-        isOpen={showFacialModal}
-        onCapture={handleFacialVerification}
-        onClose={() => setShowFacialModal(false)}
-        isLoading={isVerifyingFacial}
-        mode="verify"
-        title="🔐 Verificación Facial"
-        description="Por favor, mire directamente a la cámara para completar el inicio de sesión"
-        authToken={loginData?.access_token || ""}
-      />
+        {/* Overlay de métodos de verificación */}
+        {show2FA && loginData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+            <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Elige un método de verificación</p>
+                  <p className="text-xs text-gray-600 mt-1">Si hay uno solo disponible, se selecciona automáticamente.</p>
+                </div>
+                <button
+                  className="text-gray-500 hover:text-gray-800"
+                  onClick={() => {
+                    setShow2FA(false);
+                    setSelectedMethod(null);
+                    setTotpCode("");
+                    setShowFacialModal(false);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {canUseFace && (
+                  <button
+                    type="button"
+                    onClick={() => chooseMethod("facial")}
+                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                      selectedMethod === "facial"
+                        ? "bg-[#005F02] text-white shadow"
+                        : "bg-white border border-gray-200 text-gray-800 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Shield className="w-5 h-5" />
+                    Verificar con cámara
+                  </button>
+                )}
+
+                {canUseTotp && (
+                    <button
+                    type="button"
+                    onClick={() => chooseMethod("totp")}
+                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                      selectedMethod === "totp"
+                      ? "bg-gradient-to-r from-[#005F02] to-[#427A43] text-white shadow"
+                      : "bg-white border border-gray-200 text-gray-800 hover:bg-gray-50"
+                    }`}
+                    >
+                    <Fingerprint className="w-6 h-6 ml-7" />
+                    Verificar con Authenticator
+                    </button>
+                )}
+              </div>
+
+              {selectedMethod === "totp" && canUseTotp && (
+                <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Fingerprint className="w-5 h-5 text-[#005F02]" />
+                    <p className="font-semibold text-gray-800">Ingresa el código de 6 dígitos</p>
+                  </div>
+
+                  <input
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    maxLength={6}
+                    placeholder="Código de 6 dígitos"
+                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#005F02]"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={verifyTotpForLogin}
+                    disabled={totpCode.trim().length !== 6 || isVerifyingTotp}
+                    className="mt-3 w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-[#005F02] to-[#427A43] text-white hover:opacity-95 disabled:opacity-60"
+                  >
+                    {isVerifyingTotp ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Verificando...
+                      </>
+                    ) : (
+                      <>
+                        <Fingerprint className="w-5 h-5" />
+                        Verificar con Authenticator
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {selectedMethod === "facial" && !showFacialModal && (
+                <button
+                  type="button"
+                  onClick={() => setShowFacialModal(true)}
+                  className="w-full py-3 rounded-xl bg-[#005F02] text-white font-semibold hover:opacity-95"
+                >
+                  Abrir cámara
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <FacialCaptureModal
+          isOpen={showFacialModal}
+          onCapture={handleFacialVerification}
+          onClose={() => setShowFacialModal(false)}
+          isLoading={isVerifyingFacial}
+          mode="verify"
+          title="🔐 Verificación Facial"
+          description="Por favor, mire directamente a la cámara para completar el inicio de sesión"
+          authToken={loginData?.access_token || ""}
+        />
     </div>
   );
 };

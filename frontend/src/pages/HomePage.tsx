@@ -124,7 +124,7 @@ const HomePage = () => {
                 {/* User Information Grid */}
                 <div className="space-y-3">
                   {/* Email */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
                     <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                       <Mail className="w-5 h-5 text-[#005F02]" />
                     </div>
@@ -135,7 +135,7 @@ const HomePage = () => {
                   </div>
 
                   {/* User ID */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
                     <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                       <User className="w-5 h-5 text-[#005F02]" />
                     </div>
@@ -146,7 +146,7 @@ const HomePage = () => {
                   </div>
 
                   {/* Created Date */}
-                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
                     <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                       <Calendar className="w-5 h-5 text-[#005F02]" />
                     </div>
@@ -162,9 +162,8 @@ const HomePage = () => {
                     </div>
                   </div>
 
-                  {/* Security Features */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3">
-                    {/* Two Factor */}
+                  {/* 2FA row solo */}
+                  <div className="grid grid-cols-1 gap-3 pt-3">
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
                       <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                         <Lock className="w-5 h-5 text-[#005F02]" />
@@ -176,8 +175,10 @@ const HomePage = () => {
                         </p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Facial Recognition */}
+                  {/* Última fila con dos métodos */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
                       <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                         <Zap className="w-5 h-5 text-[#005F02]" />
@@ -185,7 +186,19 @@ const HomePage = () => {
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 font-medium">Facial</p>
                         <p className={`text-sm font-semibold ${userData.facial_recognition_enabled ? "text-green-600" : "text-gray-400"}`}>
-                          {userData.facial_recognition_enabled ? "✓ Activo" : "○ Inactivo"}
+                          {userData.facial_recognition_enabled ? "✓ Habilitado" : "○ No configurado"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
+                      <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-[#005F02]" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 font-medium">Authenticator</p>
+                        <p className={`text-sm font-semibold ${userData.two_factor_enabled ? "text-green-600" : "text-gray-400"}`}>
+                          {userData.two_factor_enabled ? "✓ Habilitado" : "○ No configurado"}
                         </p>
                       </div>
                     </div>
@@ -198,7 +211,10 @@ const HomePage = () => {
                     <Edit className="w-4 h-4" />
                     <span>Editar</span>
                   </button>
-                  <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all hover:scale-[1.02]">
+                  <button
+                    onClick={() => navigate("/settings")}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all hover:scale-[1.02]"
+                  >
                     <Settings className="w-4 h-4" />
                     <span>Ajustes</span>
                   </button>

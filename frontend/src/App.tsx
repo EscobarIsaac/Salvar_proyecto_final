@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
 import NotFound from "./pages/NotFound";
 import CameraTestPage from "./pages/CameraTestPage";
+import SettingsPage from "./pages/SettingsPage";
 
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/camera-test" element={<CameraTestPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

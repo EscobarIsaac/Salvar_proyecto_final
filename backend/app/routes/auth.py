@@ -61,7 +61,8 @@ async def login(login_data: UserLoginSchema):
 @router.post("/verify-facial-for-login")
 async def verify_facial_for_login(
     facial_data: FacialCaptureSchema,
-    user_id: str = Query(..., description="ID del usuario que intenta hacer login"),
+    user_id: str = Query(...,
+                         description="ID del usuario que intenta hacer login"),
 ):
     try:
         image_bytes = base64.b64decode(facial_data.image_base64)
@@ -71,7 +72,8 @@ async def verify_facial_for_login(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error en verificación facial: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f"Error en verificación facial: {str(e)}")
 
 
 # =========================
@@ -100,6 +102,14 @@ async def verify_2fa_login(req: TwoFactorLoginVerifyRequest, user_id: str = Quer
     Verifica código TOTP durante el login (sin cambiar configuración).
     """
     return await TwoFactorService.verify_totp_for_login(user_id, req.code)
+
+
+@router.post("/2fa/disable")
+async def disable_2fa(user_id: str = Query(..., description="ID del usuario")):
+    """
+    Deshabilita 2FA (Authenticator) y elimina el secret almacenado.
+    """
+    return await TwoFactorService.disable_totp(user_id)
 
 
 @router.get("/health")
