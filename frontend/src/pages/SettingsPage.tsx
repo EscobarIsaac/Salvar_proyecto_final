@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Leaf, Zap, Fingerprint, LogOut, ArrowLeft, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Shield, Leaf, Zap, Fingerprint, LogOut, ArrowLeft, ShieldCheck, AlertTriangle, Pin, PinIcon, ScanFaceIcon, CheckCircle2 } from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
 import { API_ENDPOINTS } from "@/config/api";
 import { Switch } from "@/components/ui/switch";
+import { FaceDetector } from "@mediapipe/tasks-vision";
 
 interface UserProfile {
   user_id: string;
@@ -13,6 +14,7 @@ interface UserProfile {
   is_active: boolean;
   two_factor_enabled: boolean;
   facial_recognition_enabled: boolean;
+  fingerprint_enabled?: boolean;
 }
 
 interface TotpSetup {
@@ -33,6 +35,13 @@ const SettingsPage = () => {
   const [totpCode, setTotpCode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fingerprintStatus, setFingerprintStatus] = useState<{ enabled: boolean; templates: number } | null>(null);
+  const [fingerprintLoading, setFingerprintLoading] = useState(false);
+  const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
+  const [fingerprintError, setFingerprintError] = useState<string | null>(null);
+  const [fingerprintReady, setFingerprintReady] = useState(false);
+  const [fingerprintAttempts, setFingerprintAttempts] = useState(0);
+  const [fingerprintCountdown, setFingerprintCountdown] = useState(0);
 
   const token = localStorage.getItem("access_token");
 
@@ -57,6 +66,7 @@ const SettingsPage = () => {
 
         const data = await res.json();
         setProfile(data);
+        await loadFingerprintStatus();
       } catch (err) {
         console.error("Error obteniendo perfil", err);
         setError("No se pudo cargar la información del usuario");
@@ -70,6 +80,24 @@ const SettingsPage = () => {
 
   const refreshProfileFlags = (updates: Partial<UserProfile>) => {
     setProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+  };
+
+  const loadFingerprintStatus = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(API_ENDPOINTS.FINGERPRINT_STATUS, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setFingerprintStatus({
+        enabled: !!data.fingerprint_enabled,
+        templates: data.templates_count || 0,
+      });
+      refreshProfileFlags({ fingerprint_enabled: !!data.fingerprint_enabled });
+    } catch (err) {
+      console.error("Error loading fingerprint status", err);
+    }
   };
 
   const toggleFacial = async (enable: boolean) => {
@@ -98,6 +126,99 @@ const SettingsPage = () => {
       setFacialSaving(false);
     }
   };
+
+  const startFingerprintRegister = async () => {
+    if (!token || !profile) return;
+    setFingerprintLoading(true);
+    setFingerprintMessage("Inicializando dispositivo y conectando...");
+    setFingerprintError(null);
+    setMessage(null);
+    setFingerprintReady(false);
+    setFingerprintAttempts(0);
+    setFingerprintCountdown(0);
+
+    // Verifica estado del lector antes de iniciar captura
+    try {
+      const statusRes = await fetch("http://localhost:9000/fingerprint/zk9500/status");
+      const statusData = await statusRes.json();
+      if (!statusRes.ok || !statusData?.ready) {
+        throw new Error("Lector no disponible. Revisa la conexión del ZK9500.");
+      }
+      setFingerprintReady(true);
+    } catch (err: any) {
+      setFingerprintError(err?.message || "No se pudo inicializar el lector ZK9500");
+      setFingerprintLoading(false);
+      setFingerprintReady(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(API_ENDPOINTS.FINGERPRINT_REGISTER, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || data?.message || "No se pudo registrar la huella");
+
+      setFingerprintStatus({ enabled: true, templates: data.templates_count || 1 });
+      refreshProfileFlags({ fingerprint_enabled: true });
+      setFingerprintMessage("Huella capturada. Guardando en el sistema...");
+      setMessage(data?.message || "Huella registrada correctamente.");
+    } catch (err: any) {
+      setFingerprintError(err?.message || "Error registrando huella");
+    } finally {
+      setFingerprintLoading(false);
+      setFingerprintReady(false);
+      setFingerprintAttempts(0);
+      setFingerprintCountdown(0);
+      setTimeout(() => setFingerprintMessage(null), 1500);
+    }
+  };
+
+  const disableFingerprint = async () => {
+    if (!token || !profile) return;
+    setFingerprintLoading(true);
+    setFingerprintError(null);
+    setFingerprintMessage("Deshabilitando huella...");
+    setFingerprintReady(false);
+    setFingerprintAttempts(0);
+    setFingerprintCountdown(0);
+    try {
+      const res = await fetch(`${API_ENDPOINTS.FINGERPRINT_DISABLE}?clear_templates=true`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || "No se pudo deshabilitar");
+
+      setFingerprintStatus({ enabled: false, templates: 0 });
+      refreshProfileFlags({ fingerprint_enabled: false });
+      setMessage(data?.message || "Huella deshabilitada");
+    } catch (err: any) {
+      setFingerprintError(err?.message || "Error deshabilitando huella");
+    } finally {
+      setFingerprintLoading(false);
+      setFingerprintReady(false);
+      setFingerprintAttempts(0);
+      setFingerprintCountdown(0);
+      setFingerprintMessage(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!fingerprintLoading || !fingerprintReady) return undefined;
+
+    setFingerprintCountdown(25);
+    setFingerprintAttempts(0);
+
+    const tick = setInterval(() => {
+      setFingerprintCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+
+    return () => {
+      clearInterval(tick);
+    };
+  }, [fingerprintLoading, fingerprintReady]);
 
   const startTotpSetup = async () => {
     if (!profile) return;
@@ -173,6 +294,54 @@ const SettingsPage = () => {
 
   return (
     <div className="min-h-screen relative">
+      {fingerprintLoading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm bg-gray-900 text-white rounded-2xl border border-emerald-400/30 shadow-2xl p-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border-2 border-emerald-400/60 bg-emerald-500/10 flex items-center justify-center animate-pulse">
+                <Fingerprint className="w-6 h-6 text-emerald-300" />
+              </div>
+              <div>
+                <p className="text-sm text-emerald-200">Preparando lector ZK9500</p>
+                <p className="text-lg font-semibold">Inicializando dispositivo y conectando...</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-100">
+              {fingerprintReady ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+              ) : (
+                <div className="w-5 h-5 border-2 border-gray-500 border-t-emerald-300 rounded-full animate-spin" />
+              )}
+              <span>{fingerprintMessage || "Inicializando dispositivo y conectando..."}</span>
+            </div>
+
+            {fingerprintReady && (
+              <div className="mt-3 rounded-xl bg-white/5 border border-white/10 p-3 space-y-2">
+                <p className="text-sm font-semibold text-emerald-200">Lector listo</p>
+                <p className="text-sm text-gray-200">Coloca tu huella ahora. Esperando captura y guardado...</p>
+                <div className="flex items-center justify-between text-xs text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-gray-500 border-t-emerald-300 rounded-full animate-spin" />
+                    <span>Intento {Math.min(fingerprintAttempts + 1, 3)} de 3</span>
+                  </div>
+                  <span>{fingerprintCountdown}s</span>
+                </div>
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-300"
+                    style={{ width: `${Math.min(((fingerprintAttempts) / 3) * 100, 100)}%` }}
+                  />
+                </div>
+                {fingerprintAttempts >= 3 && (
+                  <p className="text-xs text-emerald-300">Generando template...</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 z-0">
         <img src={fondo1} alt="Nature background" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -236,16 +405,23 @@ const SettingsPage = () => {
               </div>
             )}
 
+            {fingerprintError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                {fingerprintError}
+              </div>
+            )}
+
             {loading || !profile ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-10 h-10 border-4 border-gray-200 border-t-[#005F02] rounded-full animate-spin" />
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="rounded-2xl bg-gray-900 text-white p-6 shadow-lg flex flex-col gap-4">
                     <div className="flex items-center gap-3">
-                      <Zap className="w-6 h-6 text-emerald-400" />
+                      <ScanFaceIcon className="w-6 h-6 text-emerald-400" />
                       <div>
                         <p className="text-xs uppercase text-gray-400">Reconocimiento Facial</p>
                         <p className="text-lg font-semibold">Estado: {profile.facial_recognition_enabled ? "Habilitado" : "Deshabilitado"}</p>
@@ -267,9 +443,9 @@ const SettingsPage = () => {
 
                   <div className="rounded-2xl bg-gray-900 text-white p-6 shadow-lg flex flex-col gap-4">
                     <div className="flex items-center gap-3">
-                      <Fingerprint className="w-6 h-6 text-emerald-400" />
+                      <PinIcon className="w-6 h-6 text-emerald-400" />
                       <div>
-                        <p className="text-xs uppercase text-gray-400">Huella (Authenticator)</p>
+                        <p className="text-xs uppercase text-gray-400">Pin Authenticator</p>
                         <p className="text-lg font-semibold">Estado: {profile.two_factor_enabled ? "Habilitado" : "No configurado"}</p>
                       </div>
                     </div>
@@ -301,12 +477,60 @@ const SettingsPage = () => {
                       </div>
                     )}
                   </div>
+
+                  <div className="rounded-2xl bg-gray-900 text-white p-6 shadow-lg flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                      <Fingerprint className="w-6 h-6 text-emerald-400" />
+                      <div>
+                        <p className="text-xs uppercase text-gray-400">Verificación Dactilar</p>
+                        <p className="text-lg font-semibold">
+                          Estado: {fingerprintStatus?.enabled ? "Habilitada" : "No configurada"}
+                        </p>
+                        <p className="text-xs text-gray-400">Plantillas: {fingerprintStatus?.templates ?? 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3">
+                      <p className="text-sm text-gray-200">Habilita el lector de huellas (ZK9500) para iniciar sesión.</p>
+
+                      {fingerprintLoading && (
+                        <div className="rounded-xl bg-white/10 border border-white/10 p-3 text-sm text-gray-100">
+                          {fingerprintMessage || "Inicializando dispositivo..."}
+                          <div className="mt-2 flex items-center gap-2 text-xs text-gray-300">
+                            <div className="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin" />
+                            Coloca tu huella en los próximos 25 segundos
+                          </div>
+                        </div>
+                      )}
+
+                      {!fingerprintLoading && (
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button
+                            type="button"
+                            onClick={startFingerprintRegister}
+                            className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition"
+                          >
+                            {fingerprintStatus?.enabled ? "Capturar otra huella" : "Configurar dactilar"}
+                          </button>
+                          {fingerprintStatus?.enabled && (
+                            <button
+                              type="button"
+                              onClick={disableFingerprint}
+                              className="px-4 py-3 rounded-xl border border-white/20 text-white bg-white/10 hover:bg-white/20"
+                            >
+                              Deshabilitar
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {totpSetup && (
                   <div className="rounded-2xl bg-white border border-gray-200 p-6 shadow-sm space-y-4">
                     <div className="flex items-center gap-2">
-                      <Fingerprint className="w-5 h-5 text-[#005F02]" />
+                      <PinIcon className="w-5 h-5 text-[#005F02]" />
                       <div>
                         <p className="font-semibold text-gray-900">Configura Authenticator</p>
                         <p className="text-sm text-gray-600">Escanea el QR y escribe el código de 6 dígitos.</p>

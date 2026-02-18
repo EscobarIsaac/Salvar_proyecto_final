@@ -15,10 +15,6 @@ logging.basicConfig(level=logging.INFO)
 
 
 class AuthService:
-    """
-    Servicio de autenticación que maneja toda la lógica de negocio relacionada
-    con el registro y login de usuarios
-    """
 
     @staticmethod
     async def register_user(user_data: UserRegisterSchema) -> dict:
@@ -54,13 +50,13 @@ class AuthService:
         # Verificar si el usuario ya existe (Mongo)
         existing_user = await db["users"].find_one({"email": email}, {"_id": 1})
         if existing_user:
-            logger.warning(f"⚠️ Intento de registro con email existente: {email}")
+            logger.warning(
+                f"⚠️ Intento de registro con email existente: {email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="El email ya está registrado"
             )
 
-        # ✅ VERIFICACIÓN TEMPRANA: Si se proporciona imagen facial, verificar unicidad ANTES de crear el usuario
         if user_data.facial_image_base64:
             logger.info(f"🔍 Verificando unicidad de rostro para: {email}")
             try:
@@ -68,10 +64,12 @@ class AuthService:
                 facial_service = FacialRecognitionService()
 
                 # Verificar que el rostro sea único
-                facial_uniqueness = facial_service.check_facial_uniqueness(image_data)
+                facial_uniqueness = facial_service.check_facial_uniqueness(
+                    image_data)
 
                 if not facial_uniqueness["is_unique"]:
-                    logger.warning(f"⛔ Rostro duplicado detectado para: {email}")
+                    logger.warning(
+                        f"⛔ Rostro duplicado detectado para: {email}")
                     raise HTTPException(
                         status_code=status.HTTP_409_CONFLICT,
                         detail=f"⛔ El rostro ya está registrado en el sistema. No se pueden registrar dos usuarios con el mismo rostro. "
@@ -83,8 +81,10 @@ class AuthService:
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"❌ Error verificando facial en registro: {str(e)}")
-                print(f"[ERROR] Error verificando facial en registro: {str(e)}")
+                logger.error(
+                    f"❌ Error verificando facial en registro: {str(e)}")
+                print(
+                    f"[ERROR] Error verificando facial en registro: {str(e)}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Error procesando imagen facial: {str(e)}"
@@ -106,11 +106,12 @@ class AuthService:
             "is_active": True,
             "two_factor_enabled": False,
             "facial_recognition_enabled": False,
+            "fingerprint_enabled": False,
+            "fingerprint_templates": [],
             "created_at": now,
             "updated_at": now
         }
 
-        # Guardar en Mongo
         try:
             await db["users"].insert_one(user_dict)
             logger.info(f"✅ Usuario creado exitosamente: {email}")
@@ -120,33 +121,29 @@ class AuthService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error guardando usuario: {str(e)}"
             )
-
-        # Si se proporciona imagen facial, guardarla (ya fue verificada arriba)
         if user_data.facial_image_base64:
             try:
-                # Decodificar imagen base64
                 image_data = base64.b64decode(user_data.facial_image_base64)
-
-                # Guardar imagen usando el servicio de reconocimiento facial
                 facial_service = FacialRecognitionService()
                 facial_service.save_facial_image(image_data, user_id)
-
-                # Marcar que el usuario tiene reconocimiento facial habilitado
                 await db["users"].update_one(
                     {"_id": user_id},
                     {"$set": {
                         "facial_recognition_enabled": True,
+                        "fingerprint_enabled": user_dict.get("fingerprint_enabled", False),
                         "updated_at": datetime.now(timezone.utc)
                     }}
                 )
 
                 user_dict["facial_recognition_enabled"] = True
                 logger.info(f"📸 Imagen facial guardada para: {email}")
-                print(f"[FACIAL] Imagen facial guardada para usuario {user_id}")
+                print(
+                    f"[FACIAL] Imagen facial guardada para usuario {user_id}")
 
             except Exception as e:
                 logger.error(f"❌ Error guardando imagen facial: {str(e)}")
-                print(f"[ERROR] Error guardando imagen facial después de verificación: {str(e)}")
+                print(
+                    f"[ERROR] Error guardando imagen facial después de verificación: {str(e)}")
                 # Eliminar el usuario si hay error guardando la imagen
                 await db["users"].delete_one({"_id": user_id})
                 raise HTTPException(
@@ -154,17 +151,12 @@ class AuthService:
                     detail=f"Error guardando imagen facial: {str(e)}"
                 )
 
-        # Retornar sin la contraseña hasheada
         user_dict.pop("hashed_password", None)
-        # Opcional: no devolver _id (si no quieres)
         user_dict.pop("_id", None)
         return user_dict
 
     @staticmethod
     async def login_user(login_data: UserLoginSchema) -> dict:
-        """
-        Realiza el login de un usuario verificando sus credenciales
-        """
         logger.info(f"🔐 Intento de login para: {login_data.email}")
 
         email = (login_data.email or "").strip().lower()
@@ -178,7 +170,6 @@ class AuthService:
                 detail="Credenciales inválidas"
             )
 
-        # Verificar contraseña
         if not verify_password(login_data.password, user_data.get("hashed_password", "")):
             logger.warning(f"❌ Contraseña incorrecta para: {email}")
             raise HTTPException(
@@ -210,6 +201,7 @@ class AuthService:
                 "username": user_data["username"],
                 "full_name": user_data.get("full_name", ""),
                 "two_factor_enabled": user_data.get("two_factor_enabled", False),
-                "facial_recognition_enabled": user_data.get("facial_recognition_enabled", False)
+                "facial_recognition_enabled": user_data.get("facial_recognition_enabled", False),
+                "fingerprint_enabled": user_data.get("fingerprint_enabled", False)
             }
         }

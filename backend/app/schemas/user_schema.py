@@ -7,7 +7,8 @@ class UserRegisterSchema(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=8)
     full_name: Optional[str] = None
-    facial_image_base64: Optional[str] = None  # Imagen facial en base64 (capturada antes)
+    # Imagen facial en base64 (capturada antes)
+    facial_image_base64: Optional[str] = None
 
 
 class UserLoginSchema(BaseModel):
@@ -28,6 +29,8 @@ class UserResponseSchema(BaseModel):
     is_active: bool
     two_factor_enabled: bool
     facial_recognition_enabled: bool
+    fingerprint_enabled: bool = False
+    fingerprint_templates: list[str] = []
 
     class Config:
         from_attributes = True
@@ -59,3 +62,4 @@ class LoginFlowResponseSchema(BaseModel):
     next_step: str = "second_factor_choice"
     facial_recognition_enabled: bool  # Si ya tiene facial registrado
     two_factor_enabled: bool          # ✅ NUEVO: Si ya tiene Authenticator configurado
+    fingerprint_enabled: bool = False

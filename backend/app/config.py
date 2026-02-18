@@ -4,9 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # JWT Configuration
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-this-in-production")
+SECRET_KEY = os.getenv(
+    "SECRET_KEY", "your-secret-key-here-change-this-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 # Firebase Configuration
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
@@ -17,8 +19,11 @@ FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 
+# Intermediary (fingerprint service)
+INTERMEDIARY_URL = os.getenv("INTERMEDIARY_URL", "http://localhost:9000")
+
 # WebAuthn / Passkeys
 WEBAUTHN_RP_ID = "localhost"
 WEBAUTHN_RP_NAME = "Salvar Proyecto Final"
-WEBAUTHN_ORIGIN = "http://localhost:8081"  # tu frontend (cámbialo si usas otro puerto)
-
+# tu frontend (cámbialo si usas otro puerto)
+WEBAUTHN_ORIGIN = "http://localhost:8081"

@@ -6,23 +6,19 @@ from datetime import datetime
 from pathlib import Path
 from fastapi import HTTPException, status
 import mediapipe as mp
-import face_recognition
+try:
+    import face_recognition
+except ImportError:
+    face_recognition = None
 from PIL import Image
 import io
 from ultralytics import YOLO
 
 
 class FacialRecognitionService:
-    """
-    Servicio para manejar captura, almacenamiento y verificación de rostros
-    """
 
     def __init__(self):
-        # Directorio base para guardar rostros - debe estar en app/facial_data
         self.FACIAL_DATA_DIR = Path(__file__).parent.parent / "facial_data"
-
-        # ✅ FIX: mediapipe en tu entorno a veces NO trae mp.solutions
-        # (a ti te salió hasattr(mp,'solutions') = False)
         self.mp_face_detection = None
         self.mp_drawing = None
         if hasattr(mp, "solutions"):
@@ -33,17 +29,17 @@ class FacialRecognitionService:
                 self.mp_face_detection = None
                 self.mp_drawing = None
 
-        # Cargar modelo YOLO para detección de accesorios (liveness)
         try:
-            self.yolo_model = YOLO('yolov8n.pt')  # Modelo nano para detección rápida
+            self.yolo_model = YOLO('yolov8n.pt')
             print("[LOG] Modelo YOLO cargado exitosamente")
         except Exception as e:
-            print(f"[WARN] Error cargando YOLO: {e}. Liveness detection deshabilitada")
+            print(
+                f"[WARN] Error cargando YOLO: {e}. Liveness detection deshabilitada")
             self.yolo_model = None
 
-        # Crear directorio si no existe
         self.FACIAL_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        print(f"[LOG] Directorio facial_data creado en: {self.FACIAL_DATA_DIR}")
+        print(
+            f"[LOG] Directorio facial_data creado en: {self.FACIAL_DATA_DIR}")
 
     @staticmethod
     def ensure_facial_data_dir():
@@ -56,7 +52,6 @@ class FacialRecognitionService:
         Guarda una imagen facial para un usuario
         """
         try:
-            # Crear directorio del usuario si no existe
             user_facial_dir = self.FACIAL_DATA_DIR / user_id
             user_facial_dir.mkdir(exist_ok=True)
 
@@ -87,11 +82,6 @@ class FacialRecognitionService:
             )
 
     def detect_face_in_image(self, image_data: bytes) -> dict:
-        """
-        Detecta si hay un rostro en la imagen
-
-        ✅ FIX: Si mediapipe no tiene mp.solutions, usamos face_recognition como fallback.
-        """
         try:
             # Convertir bytes a imagen numpy
             nparr = np.frombuffer(image_data, np.uint8)
@@ -106,7 +96,6 @@ class FacialRecognitionService:
             rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             h, w, _ = image.shape
 
-            # 1) Intentar mediapipe si está disponible
             if self.mp_face_detection is not None:
                 with self.mp_face_detection.FaceDetection(
                     model_selection=0,
@@ -136,7 +125,12 @@ class FacialRecognitionService:
                         "message": "Rostro detectado correctamente"
                     }
 
-            # 2) Fallback: face_recognition
+            if face_recognition is None:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Face recognition no disponible: instala face_recognition si necesitas detección facial."
+                )
+
             face_locations = face_recognition.face_locations(rgb_image)
             if not face_locations:
                 raise HTTPException(
@@ -168,9 +162,6 @@ class FacialRecognitionService:
             )
 
     def get_user_facial_images(self, user_id: str) -> list:
-        """
-        Obtiene todas las imágenes faciales de un usuario
-        """
         user_facial_dir = self.FACIAL_DATA_DIR / user_id
 
         if not user_facial_dir.exists():
@@ -183,9 +174,6 @@ class FacialRecognitionService:
         return sorted(images, reverse=True)  # Más recientes primero
 
     def verify_face(self, image_data: bytes, user_id: str) -> dict:
-        """
-        Verifica si el rostro en la imagen coincide con el registrado para un usuario específico
-        """
         try:
             user_images = self.get_user_facial_images(user_id)
 
@@ -235,19 +223,8 @@ class FacialRecognitionService:
             )
 
     async def verify_face_for_login(self, image_data: bytes, user_id: str) -> dict:
-        """
-        Verifica el rostro durante el login - Versión estricta
-
-        ✅ FIX PRINCIPAL:
-        - Tu db ya NO es Firestore (db.collection().document().get())
-        - Ahora es MongoDB Motor (AsyncIOMotorDatabase)
-        """
         try:
-            # Verificar que el usuario exista y tenga facial recognition habilitado
             from app.mongo import db
-
-            # ✅ Motor: obtener colección correctamente
-            # (evita: MotorCollection object is not callable)
             users_col = None
             if hasattr(db, "__getitem__"):
                 users_col = db["users"]
@@ -259,7 +236,6 @@ class FacialRecognitionService:
                     detail="❌ DB no compatible: no se pudo obtener colección 'users'"
                 )
 
-            # ✅ Buscar por user_id (como lo guardas en tu AuthService)
             user_doc = await users_col.find_one({"user_id": user_id})
 
             if not user_doc:
@@ -276,7 +252,6 @@ class FacialRecognitionService:
                     detail="❌ Facial recognition no habilitado para este usuario"
                 )
 
-            # Obtener imágenes del usuario (filesystem)
             user_images = self.get_user_facial_images(user_id)
 
             if not user_images:
@@ -285,7 +260,6 @@ class FacialRecognitionService:
                     detail="❌ No hay rostro registrado para este usuario. No se puede completar el login."
                 )
 
-            # Detectar rostro en la imagen actual
             try:
                 detection_result = self.detect_face_in_image(image_data)
 
@@ -301,18 +275,17 @@ class FacialRecognitionService:
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=f"❌ Error detectando rostro: {str(e)}"
                 )
-
-            # Verificar liveness
             liveness_check = self._check_liveness(image_data)
             if not liveness_check["is_alive"]:
-                security_level = liveness_check.get("security_level", "DESCONOCIDO")
-                print(f"[🚫 SEGURIDAD {security_level}] Liveness check fallido: {liveness_check['reason']}")
+                security_level = liveness_check.get(
+                    "security_level", "DESCONOCIDO")
+                print(
+                    f"[🚫 SEGURIDAD {security_level}] Liveness check fallido: {liveness_check['reason']}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail=liveness_check['reason']
                 )
 
-            # Comparar rostro SOLO con el usuario específico
             verification_result = self._compare_faces(image_data, user_images)
 
             if not verification_result["match"]:
@@ -338,12 +311,10 @@ class FacialRecognitionService:
             )
 
     def _compare_faces(self, image_data: bytes, registered_images: list) -> dict:
-        """
-        (sin cambios)
-        """
         try:
             if not registered_images or len(registered_images) == 0:
-                print("[CRITICAL] VULNERABILIDAD: Se intentó comparar con lista vacía")
+                print(
+                    "[CRITICAL] VULNERABILIDAD: Se intentó comparar con lista vacía")
                 return {
                     "match": False,
                     "confidence": 0,
@@ -367,8 +338,18 @@ class FacialRecognitionService:
 
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+            if face_recognition is None:
+                return {
+                    "match": False,
+                    "confidence": 0,
+                    "distance": 1.0,
+                    "matched_images": 0,
+                    "reason": "Face recognition no disponible"
+                }
+
             try:
-                current_face_encodings = face_recognition.face_encodings(image_rgb)
+                current_face_encodings = face_recognition.face_encodings(
+                    image_rgb)
                 if not current_face_encodings:
                     print("[ERROR] No se pudo extraer encoding del rostro capturado")
                     return {
@@ -381,7 +362,8 @@ class FacialRecognitionService:
 
                 current_face_encoding = current_face_encodings[0]
             except Exception as e:
-                print(f"[ERROR] Error obteniendo encoding del rostro actual: {e}")
+                print(
+                    f"[ERROR] Error obteniendo encoding del rostro actual: {e}")
                 return {
                     "match": False,
                     "confidence": 0,
@@ -398,15 +380,19 @@ class FacialRecognitionService:
             DISTANCE_THRESHOLD = 0.55
             CONFIDENCE_MIN = 35
 
-            print(f"[LOG] Comparando rostro capturado con {len(registered_images)} imágenes registradas")
+            print(
+                f"[LOG] Comparando rostro capturado con {len(registered_images)} imágenes registradas")
 
             for idx, registered_image_path in enumerate(registered_images):
                 try:
-                    registered_image = face_recognition.load_image_file(registered_image_path)
-                    registered_face_encodings = face_recognition.face_encodings(registered_image)
+                    registered_image = face_recognition.load_image_file(
+                        registered_image_path)
+                    registered_face_encodings = face_recognition.face_encodings(
+                        registered_image)
 
                     if not registered_face_encodings:
-                        print(f"[WARN] No se pudo extraer encoding de imagen registrada #{idx + 1}")
+                        print(
+                            f"[WARN] No se pudo extraer encoding de imagen registrada #{idx + 1}")
                         continue
 
                     registered_face_encoding = registered_face_encodings[0]
@@ -418,7 +404,8 @@ class FacialRecognitionService:
 
                     confidence = max(0, (1 - distance) * 100)
 
-                    print(f"[LOG] Imagen #{idx + 1}: distance={distance:.4f}, confidence={confidence:.1f}%")
+                    print(
+                        f"[LOG] Imagen #{idx + 1}: distance={distance:.4f}, confidence={confidence:.1f}%")
 
                     match_details.append({
                         "image": registered_image_path,
@@ -431,15 +418,18 @@ class FacialRecognitionService:
                         best_match = True
                         matched_count += 1
                         best_distance = min(best_distance, distance)
-                        print(f"[✓] COINCIDENCIA ENCONTRADA en imagen #{idx + 1} con confidence {confidence:.1f}%")
+                        print(
+                            f"[✓] COINCIDENCIA ENCONTRADA en imagen #{idx + 1} con confidence {confidence:.1f}%")
 
                 except Exception as e:
-                    print(f"[ERROR] Error procesando imagen registrada #{idx + 1}: {e}")
+                    print(
+                        f"[ERROR] Error procesando imagen registrada #{idx + 1}: {e}")
                     continue
 
             if best_match and matched_count > 0:
                 confidence = max(0, (1 - best_distance) * 100)
-                print(f"[✓✓✓] VERIFICACIÓN EXITOSA: {matched_count}/{len(registered_images)} imágenes coincidieron")
+                print(
+                    f"[✓✓✓] VERIFICACIÓN EXITOSA: {matched_count}/{len(registered_images)} imágenes coincidieron")
                 return {
                     "match": True,
                     "confidence": float(confidence),
@@ -471,9 +461,6 @@ class FacialRecognitionService:
             }
 
     def _check_liveness(self, image_data: bytes) -> dict:
-        """
-        (sin cambios)
-        """
         try:
             if not self.yolo_model:
                 return {
@@ -564,7 +551,8 @@ class FacialRecognitionService:
                         if class_id in allowed_accessories:
                             accessory_name = allowed_accessories[class_id]
                             detected_allowed_accessories.append(accessory_name)
-                            print(f"[✅ PERMITIDO] {accessory_name.upper()} detectado - Aceptado")
+                            print(
+                                f"[✅ PERMITIDO] {accessory_name.upper()} detectado - Aceptado")
 
                         elif class_id in device_classes:
                             device_name = device_classes[class_id]
@@ -578,7 +566,8 @@ class FacialRecognitionService:
                                     "x2": float(x2), "y2": float(y2)
                                 }
                             })
-                            print(f"[⚠️ DEVICE] {device_name.upper()} detectado con {confidence:.2%} confianza (ocupa {box_percentage:.1f}% de la imagen)")
+                            print(
+                                f"[⚠️ DEVICE] {device_name.upper()} detectado con {confidence:.2%} confianza (ocupa {box_percentage:.1f}% de la imagen)")
 
                         elif class_id in accessory_classes:
                             accessory_name = accessory_classes[class_id]
@@ -588,13 +577,15 @@ class FacialRecognitionService:
                         elif class_id in suspicious_classes:
                             suspicious_name = suspicious_classes[class_id]
                             detected_suspicious.append(suspicious_name)
-                            print(f"[⚠️ SOSPECHOSO] {suspicious_name} detectado")
+                            print(
+                                f"[⚠️ SOSPECHOSO] {suspicious_name} detectado")
 
             print("[LOG] ====================================")
 
             if detected_devices:
                 devices_str = ", ".join(detected_devices)
-                print(f"[❌ RECHAZO] Se detectó dispositivo de video: {devices_str}")
+                print(
+                    f"[❌ RECHAZO] Se detectó dispositivo de video: {devices_str}")
                 return {
                     "is_alive": False,
                     "reason": f"❌ VERIFICACIÓN FALLIDA: Se detectó un dispositivo de pantalla ({devices_str}). El rostro debe presentarse directamente, no a través de una pantalla, teléfono, tablet o monitor.",
@@ -604,7 +595,8 @@ class FacialRecognitionService:
 
             if len(detected_accessories) >= 2:
                 accessories_str = ", ".join(detected_accessories)
-                print(f"[❌ RECHAZO] Múltiples accesorios detectados: {accessories_str}")
+                print(
+                    f"[❌ RECHAZO] Múltiples accesorios detectados: {accessories_str}")
                 return {
                     "is_alive": False,
                     "reason": f"❌ VERIFICACIÓN FALLIDA: Demasiados accesorios/objetos detectados ({accessories_str}). Presente su rostro sin accesorios adicionales.",
@@ -654,9 +646,6 @@ class FacialRecognitionService:
             }
 
     def check_facial_uniqueness(self, image_data: bytes, exclude_user_id: str = None) -> dict:
-        """
-        (sin cambios)
-        """
         try:
             if not self.FACIAL_DATA_DIR.exists():
                 return {
@@ -678,9 +667,11 @@ class FacialRecognitionService:
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
             try:
-                current_face_encodings = face_recognition.face_encodings(image_rgb)
+                current_face_encodings = face_recognition.face_encodings(
+                    image_rgb)
                 if not current_face_encodings:
-                    raise Exception("No se detectó un rostro válido en la imagen")
+                    raise Exception(
+                        "No se detectó un rostro válido en la imagen")
                 current_encoding = current_face_encodings[0]
             except Exception as e:
                 return {
@@ -707,15 +698,18 @@ class FacialRecognitionService:
                 registered_image_path = user_images[0]
 
                 try:
-                    registered_image = face_recognition.load_image_file(str(registered_image_path))
-                    registered_encodings = face_recognition.face_encodings(registered_image)
+                    registered_image = face_recognition.load_image_file(
+                        str(registered_image_path))
+                    registered_encodings = face_recognition.face_encodings(
+                        registered_image)
 
                     if not registered_encodings:
                         continue
 
                     registered_encoding = registered_encodings[0]
 
-                    distance = np.linalg.norm(current_encoding - registered_encoding)
+                    distance = np.linalg.norm(
+                        current_encoding - registered_encoding)
 
                     DISTANCE_THRESHOLD = 0.6
                     if distance < DISTANCE_THRESHOLD:
@@ -728,7 +722,8 @@ class FacialRecognitionService:
                         }
 
                 except Exception as e:
-                    print(f"[WARN] Error comparando con usuario {user_id_dir}: {str(e)}")
+                    print(
+                        f"[WARN] Error comparando con usuario {user_id_dir}: {str(e)}")
                     continue
 
             return {

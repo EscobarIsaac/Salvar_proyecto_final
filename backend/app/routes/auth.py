@@ -13,9 +13,11 @@ from app.schemas.two_factor_schema import (
     TwoFactorLoginVerifyRequest,
     TwoFactorLoginVerifyResponse,
 )
+from app.schemas.fingerprint_schema import FingerprintVerifyResponse
 from app.services.auth_service import AuthService
 from app.services.facial_recognition_service import FacialRecognitionService
 from app.services.two_factor_service import TwoFactorService
+from app.services.fingerprint_service import FingerprintService
 import base64
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -55,6 +57,7 @@ async def login(login_data: UserLoginSchema):
         "next_step": "second_factor_choice",
         "facial_recognition_enabled": user_data.get("facial_recognition_enabled", False),
         "two_factor_enabled": user_data.get("two_factor_enabled", False),
+        "fingerprint_enabled": user_data.get("fingerprint_enabled", False),
     }
 
 
@@ -74,6 +77,19 @@ async def verify_facial_for_login(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Error en verificación facial: {str(e)}")
+
+
+@router.post("/fingerprint/verify-login", response_model=FingerprintVerifyResponse)
+async def verify_fingerprint_for_login(
+    user_id: str = Query(...,
+                         description="ID del usuario que intenta hacer login"),
+    score_threshold: int = Query(
+        40, description="Umbral mínimo de score para match"),
+):
+    result = await FingerprintService.verify_for_login(user_id, score_threshold)
+    message = "Huella verificada" if result.get(
+        "match") else "Huella no coincide"
+    return {**result, "message": message}
 
 
 # =========================

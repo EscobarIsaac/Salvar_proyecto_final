@@ -1,0 +1,72 @@
+{
+  "info": {
+    "_postman_id": "6d5b4b8c-9b71-4c9d-9c78-2e708a0e2c10",
+    "name": "Intermediary App - ZK9500",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "ZK9500 Register",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/fingerprint/zk9500/register?user_id={{user_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "fingerprint",
+            "zk9500",
+            "register"
+          ],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "{{user_id}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "ZK9500 Verify",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"candidates\": [\n    {\n      \"user_id\": \"demo-user\",\n      \"template_base64\": \"<paste_template_base64_here>\"\n    }\n  ],\n  \"score_threshold\": 40\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/fingerprint/zk9500/verify",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "fingerprint",
+            "zk9500",
+            "verify"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:9000"
+    },
+    {
+      "key": "user_id",
+      "value": "demo-user"
+    }
+  ]
+}

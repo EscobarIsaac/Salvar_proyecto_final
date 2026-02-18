@@ -4,6 +4,12 @@ export const API_ENDPOINTS = {
   LOGIN: `${BASE_URL}/api/auth/login`,
   REGISTER: `${BASE_URL}/api/auth/register`,
   VERIFY_FACIAL_LOGIN: `${BASE_URL}/api/auth/verify-facial-for-login`,
+  VERIFY_FINGERPRINT_LOGIN: `${BASE_URL}/api/auth/fingerprint/verify-login`,
+
+  // Fingerprint
+  FINGERPRINT_REGISTER: `${BASE_URL}/api/users/fingerprint/register`,
+  FINGERPRINT_DISABLE: `${BASE_URL}/api/users/fingerprint/disable`,
+  FINGERPRINT_STATUS: `${BASE_URL}/api/users/fingerprint/status`,
 
   // Authenticator (TOTP)
   TOTP_SETUP: `${BASE_URL}/api/auth/2fa/setup`,

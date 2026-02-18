@@ -24,6 +24,8 @@ class UserInDB(UserBase):
     is_active: bool = True
     two_factor_enabled: bool = False
     facial_recognition_enabled: bool = False
+    fingerprint_enabled: bool = False
+    fingerprint_templates: list[str] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -33,6 +35,8 @@ class UserResponse(UserBase):
     is_active: bool
     two_factor_enabled: bool
     facial_recognition_enabled: bool
+    fingerprint_enabled: bool
+    fingerprint_templates: list[str] = []
     created_at: datetime
 
     class Config:

@@ -180,36 +180,3 @@ DEBUG=False
 ENVIRONMENT=production
 SECRET_KEY=use-a-secure-random-key
 ```
-
-## Troubleshooting
-
-### Error: "Token inválido o expirado"
-
-Asegúrate de:
-- Incluir el token en el header `Authorization: Bearer <token>`
-- El token no ha expirado (30 minutos por defecto)
-- El SECRET_KEY es el mismo en todas las instancias
-
-### Error: "Conexión con Firebase fallida"
-
-Verifica:
-- El archivo `serviceAccountKey.json` existe en la raíz
-- O las variables de entorno están correctamente configuradas
-- Tienes las credenciales correctas de Firebase
-
-### Error: "Database not initialized"
-
-Asegúrate de que Firebase está correctamente inicializado en `app/database.py`
-
-## Próximos Pasos
-
-1. Implementar autenticación de doble factor
-2. Implementar reconocimiento facial
-3. Agregar endpoints para gestión de sesiones
-4. Implementar rate limiting
-5. Agregar logging
-6. Escribir tests unitarios
-
-## Licencia
-
-MIT

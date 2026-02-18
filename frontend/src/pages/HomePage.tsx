@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Mail, User, Calendar, Lock, Zap, Shield, Leaf, LogOut, Settings, Edit } from "lucide-react";
+import { CheckCircle2, Mail, User, Calendar, Lock, Zap, Shield, Leaf, LogOut, Settings, Edit, Fingerprint } from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
 
 interface UserData {
@@ -11,6 +11,7 @@ interface UserData {
   is_active: boolean;
   two_factor_enabled: boolean;
   facial_recognition_enabled: boolean;
+  fingerprint_enabled: boolean;
   created_at: string;
 }
 
@@ -22,8 +23,6 @@ const HomePage = () => {
 
   useEffect(() => {
     setTimeout(() => setShowContent(true), 100);
-
-    // Obtener datos del usuario
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem("access_token");
@@ -58,7 +57,6 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen relative">
-      {/* Background Image */}
       <div className="fixed inset-0 z-0">
         <img
           src={fondo1}
@@ -68,7 +66,6 @@ const HomePage = () => {
         <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       </div>
 
-      {/* Header Badge */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10">
         <div className="bg-white/95 backdrop-blur-md rounded-full px-6 py-3 flex items-center gap-3 shadow-xl border border-[#005F02]/20">
           <Shield className="w-5 h-5 text-[#005F02]" />
@@ -77,7 +74,6 @@ const HomePage = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4 pt-32 pb-16">
         <div className={`w-full max-w-2xl transition-all duration-700 ${showContent ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
           {/* Success Icon */}
@@ -87,7 +83,6 @@ const HomePage = () => {
             </div>
           </div>
 
-          {/* Welcome Title */}
           <h1 className="text-4xl md:text-5xl font-bold text-center text-white mb-3">
             ¡Bienvenido!
           </h1>
@@ -95,7 +90,6 @@ const HomePage = () => {
             Has iniciado sesión correctamente
           </p>
 
-          {/* User Profile Card */}
           <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 space-y-6">
             {loading ? (
               <div className="flex items-center justify-center py-12">
@@ -103,7 +97,7 @@ const HomePage = () => {
               </div>
             ) : userData ? (
               <>
-                {/* Profile Header */}
+
                 <div className="flex items-center gap-4 pb-6 border-b border-gray-200">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#005F02] to-[#427A43] flex items-center justify-center">
                     <User className="w-8 h-8 text-white" />
@@ -121,7 +115,6 @@ const HomePage = () => {
                   </div>
                 </div>
 
-                {/* User Information Grid */}
                 <div className="space-y-3">
                   {/* Email */}
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
@@ -134,7 +127,6 @@ const HomePage = () => {
                     </div>
                   </div>
 
-                  {/* User ID */}
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
                     <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                       <User className="w-5 h-5 text-[#005F02]" />
@@ -144,8 +136,6 @@ const HomePage = () => {
                       <p className="text-sm text-gray-900 font-mono truncate">{userData.user_id}</p>
                     </div>
                   </div>
-
-                  {/* Created Date */}
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50">
                     <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
                       <Calendar className="w-5 h-5 text-[#005F02]" />
@@ -177,7 +167,21 @@ const HomePage = () => {
                     </div>
                   </div>
 
-                  {/* Última fila con dos métodos */}
+                  {/* Fila Authenticator */}
+                  <div className="grid grid-cols-1 gap-3 pt-1">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
+                      <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-[#005F02]" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 font-medium">Authenticator</p>
+                        <p className={`text-sm font-semibold ${userData.two_factor_enabled ? "text-green-600" : "text-gray-400"}`}>
+                          {userData.two_factor_enabled ? "✓ Habilitado" : "○ No configurado"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
                       <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
@@ -193,19 +197,18 @@ const HomePage = () => {
 
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50">
                       <div className="w-10 h-10 rounded-lg bg-[#005F02]/10 flex items-center justify-center">
-                        <Shield className="w-5 h-5 text-[#005F02]" />
+                        <Fingerprint className="w-5 h-5 text-[#005F02]" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs text-gray-500 font-medium">Authenticator</p>
-                        <p className={`text-sm font-semibold ${userData.two_factor_enabled ? "text-green-600" : "text-gray-400"}`}>
-                          {userData.two_factor_enabled ? "✓ Habilitado" : "○ No configurado"}
+                        <p className="text-xs text-gray-500 font-medium">Dactilar</p>
+                        <p className={`text-sm font-semibold ${userData.fingerprint_enabled ? "text-green-600" : "text-gray-400"}`}>
+                          {userData.fingerprint_enabled ? "✓ Habilitado" : "○ No configurado"}
                         </p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="grid grid-cols-2 gap-3 pt-6 border-t border-gray-200">
                   <button className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-all hover:scale-[1.02]">
                     <Edit className="w-4 h-4" />
@@ -227,7 +230,6 @@ const HomePage = () => {
             )}
           </div>
 
-          {/* Logout Button */}
           <div className="flex justify-center mt-8">
             <button
               onClick={() => {
@@ -243,7 +245,6 @@ const HomePage = () => {
             </button>
           </div>
 
-          {/* Footer */}
           <div className="mt-6 text-center">
             <p className="text-white text-sm flex items-center justify-center gap-2">
               <Leaf className="w-4 h-4" />

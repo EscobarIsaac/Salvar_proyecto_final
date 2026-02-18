@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.schemas.user_schema import UserResponseSchema, UserUpdateSchema
+from app.schemas.fingerprint_schema import (
+    FingerprintRegisterResponse,
+    FingerprintStatusResponse,
+)
 from app.services.user_service import UserService
+from app.services.fingerprint_service import FingerprintService
 from app.core.security import get_current_user
 
 router = APIRouter(prefix="/api/users", tags=["Users"])
@@ -59,6 +64,41 @@ async def disable_facial_recognition(current_user: dict = Depends(get_current_us
         "message": "Reconocimiento facial deshabilitado",
         "user": user
     }
+
+
+@router.post("/fingerprint/register", response_model=FingerprintRegisterResponse)
+async def register_fingerprint(current_user: dict = Depends(get_current_user)):
+    """
+    Captura y guarda una plantilla de huella para el usuario autenticado
+    """
+    result = await FingerprintService.register_template(current_user["user_id"])
+    return {
+        "message": "Huella registrada correctamente",
+        **result,
+    }
+
+
+@router.post("/fingerprint/disable")
+async def disable_fingerprint(
+    clear_templates: bool = True,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Deshabilita la autenticación por huella y (opcionalmente) borra las plantillas guardadas
+    """
+    user = await FingerprintService.disable_fingerprint(current_user["user_id"], clear_templates)
+    return {
+        "message": "Huella deshabilitada",
+        "user": user,
+    }
+
+
+@router.get("/fingerprint/status", response_model=FingerprintStatusResponse)
+async def fingerprint_status(current_user: dict = Depends(get_current_user)):
+    """
+    Devuelve el estado de la autenticación por huella del usuario autenticado
+    """
+    return await FingerprintService.status(current_user["user_id"])
 
 
 @router.get("/health")

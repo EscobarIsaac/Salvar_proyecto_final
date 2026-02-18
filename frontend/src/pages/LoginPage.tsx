@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Mail, Lock, Shield, Leaf, KeyRound, Fingerprint } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Shield, Leaf, KeyRound, Fingerprint, CheckCircle2 } from "lucide-react";
 import fondo1 from "@/assets/fondo1.jpg";
 import FacialCaptureModal from "@/components/FacialCaptureModal";
 import { API_ENDPOINTS } from "@/config/api";
@@ -14,6 +14,7 @@ interface LoginResponse {
   next_step: string;
   facial_recognition_enabled: boolean;
   two_factor_enabled: boolean;
+  fingerprint_enabled: boolean;
 }
 
 const LoginPage = () => {
@@ -29,12 +30,17 @@ const LoginPage = () => {
 
   const [showFacialModal, setShowFacialModal] = useState(false);
   const [isVerifyingFacial, setIsVerifyingFacial] = useState(false);
+  const [isVerifyingFingerprint, setIsVerifyingFingerprint] = useState(false);
+  const [fingerprintMessage, setFingerprintMessage] = useState<string | null>(null);
+  const [fingerprintReady, setFingerprintReady] = useState(false);
+  const [fingerprintAttempts, setFingerprintAttempts] = useState(0);
+  const [fingerprintCountdown, setFingerprintCountdown] = useState(0);
 
   const [show2FA, setShow2FA] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [isVerifyingTotp, setIsVerifyingTotp] = useState(false);
 
-  const [selectedMethod, setSelectedMethod] = useState<"facial" | "totp" | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<"facial" | "totp" | "fingerprint" | null>(null);
 
   const [isExiting, setIsExiting] = useState(false);
 
@@ -113,6 +119,80 @@ const LoginPage = () => {
     }
   };
 
+  const handleFingerprintVerification = async () => {
+    if (!loginData) return;
+    setIsVerifyingFingerprint(true);
+    setError("");
+    setFingerprintMessage("Inicializando dispositivo y conectando... coloca tu huella (25s)");
+    setFingerprintReady(false);
+    setFingerprintAttempts(0);
+    setFingerprintCountdown(0);
+
+    // Verifica estado del lector antes de iniciar captura
+    try {
+      const statusRes = await fetch("http://localhost:9000/fingerprint/zk9500/status");
+      const statusData = await statusRes.json();
+      if (!statusRes.ok || !statusData?.ready) {
+        throw new Error("Lector no disponible. Revisa la conexión del ZK9500.");
+      }
+      setFingerprintReady(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "No se pudo inicializar el lector ZK9500";
+      setError("❌ " + msg);
+      setIsVerifyingFingerprint(false);
+      setFingerprintMessage(null);
+      setFingerprintReady(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_ENDPOINTS.VERIFY_FINGERPRINT_LOGIN}?user_id=${loginData.user_id}`,
+        { method: "POST" }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.message || "Error en verificación dactilar");
+      }
+
+      if (!data?.match) {
+        throw new Error("La huella no coincide");
+      }
+
+      finalizeLogin();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error en verificación dactilar";
+      setError("❌ " + msg);
+    } finally {
+      setIsVerifyingFingerprint(false);
+      setFingerprintMessage(null);
+      setFingerprintReady(false);
+      setFingerprintAttempts(0);
+      setFingerprintCountdown(0);
+    }
+  };
+
+  useEffect(() => {
+    if (!isVerifyingFingerprint || !fingerprintReady) return undefined;
+
+    setFingerprintCountdown(25);
+    setFingerprintAttempts(0);
+
+    const tick = setInterval(() => {
+      setFingerprintCountdown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+
+    const attemptTick = setInterval(() => {
+      setFingerprintAttempts((a) => (a < 3 ? a + 1 : a));
+    }, 4500);
+
+    return () => {
+      clearInterval(tick);
+      clearInterval(attemptTick);
+    };
+  }, [isVerifyingFingerprint, fingerprintReady]);
+
   const verifyTotpForLogin = async () => {
     if (!loginData) return;
 
@@ -143,39 +223,98 @@ const LoginPage = () => {
 
   const canUseFace = !!loginData?.facial_recognition_enabled;
   const canUseTotp = !!loginData?.two_factor_enabled;
+  const canUseFingerprint = !!loginData?.fingerprint_enabled;
 
   useEffect(() => {
     if (!loginData) return;
 
     const faceEnabled = !!loginData.facial_recognition_enabled;
     const totpEnabled = !!loginData.two_factor_enabled;
+    const fpEnabled = !!loginData.fingerprint_enabled;
 
-    if (!faceEnabled && !totpEnabled) {
+    if (!faceEnabled && !totpEnabled && !fpEnabled) {
       finalizeLogin();
       return;
     }
 
     setShow2FA(true);
 
-    if (faceEnabled && totpEnabled) {
+    const enabledMethods = [
+      faceEnabled ? "facial" : null,
+      totpEnabled ? "totp" : null,
+      fpEnabled ? "fingerprint" : null,
+    ].filter(Boolean) as Array<"facial" | "totp" | "fingerprint">;
+
+    if (enabledMethods.length === 1) {
+      const only = enabledMethods[0];
+      setSelectedMethod(only);
+      if (only === "facial") setShowFacialModal(true);
+      if (only === "fingerprint") handleFingerprintVerification();
+    } else {
       setSelectedMethod(null);
-    } else if (faceEnabled) {
-      setSelectedMethod("facial");
-      setShowFacialModal(true);
-    } else if (totpEnabled) {
-      setSelectedMethod("totp");
     }
   }, [loginData]);
 
-  const chooseMethod = (method: "facial" | "totp") => {
+  const chooseMethod = (method: "facial" | "totp" | "fingerprint") => {
     setSelectedMethod(method);
     if (method === "facial") {
       setShowFacialModal(true);
+    }
+    if (method === "fingerprint") {
+      handleFingerprintVerification();
     }
   };
 
   return (
     <div className={`min-h-screen relative transition-all duration-500 ${isExiting ? "opacity-0" : ""}`}>
+      {isVerifyingFingerprint && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+          <div className="relative w-full max-w-sm bg-gray-900 text-white rounded-2xl border border-emerald-400/30 shadow-2xl p-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border-2 border-emerald-400/60 bg-emerald-500/10 flex items-center justify-center animate-pulse">
+                <Fingerprint className="w-6 h-6 text-emerald-300" />
+              </div>
+              <div>
+                <p className="text-sm text-emerald-200">Verificación dactilar</p>
+                <p className="text-lg font-semibold">Inicializando dispositivo y conectando...</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-100">
+              {fingerprintReady ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-300" />
+              ) : (
+                <div className="w-5 h-5 border-2 border-gray-500 border-t-emerald-300 rounded-full animate-spin" />
+              )}
+              <span>{fingerprintMessage || "Inicializando dispositivo y conectando..."}</span>
+            </div>
+
+            {fingerprintReady && (
+              <div className="mt-3 rounded-xl bg-white/5 border border-white/10 p-3 space-y-2">
+                <p className="text-sm font-semibold text-emerald-200">Lector listo</p>
+                <p className="text-sm text-gray-200">Coloca tu huella ahora. Esperando captura...</p>
+                <div className="flex items-center justify-between text-xs text-gray-300">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-gray-500 border-t-emerald-300 rounded-full animate-spin" />
+                    <span>Intento {Math.min(fingerprintAttempts + 1, 3)} de 3</span>
+                  </div>
+                  <span>{fingerprintCountdown}s</span>
+                </div>
+                <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-400 transition-all duration-300"
+                    style={{ width: `${Math.min(((fingerprintAttempts) / 3) * 100, 100)}%` }}
+                  />
+                </div>
+                {fingerprintAttempts >= 3 && (
+                  <p className="text-xs text-emerald-300">Generando template...</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="fixed inset-0 z-0">
         <img src={fondo1} alt="Nature background" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
@@ -293,7 +432,6 @@ const LoginPage = () => {
         </div>
       </div>
 
-        {/* Overlay de métodos de verificación */}
         {show2FA && loginData && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
@@ -342,9 +480,24 @@ const LoginPage = () => {
                       : "bg-white border border-gray-200 text-gray-800 hover:bg-gray-50"
                     }`}
                     >
-                    <Fingerprint className="w-6 h-6 ml-7" />
+                    <KeyRound className="w-5 h-5" />
                     Verificar con Authenticator
                     </button>
+                )}
+
+                {canUseFingerprint && (
+                  <button
+                    type="button"
+                    onClick={() => chooseMethod("fingerprint")}
+                    className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all ${
+                      selectedMethod === "fingerprint"
+                        ? "bg-emerald-600 text-white shadow"
+                        : "bg-white border border-gray-200 text-gray-800 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Fingerprint className="w-5 h-5" />
+                    Verificar con huella
+                  </button>
                 )}
               </div>
 
@@ -381,6 +534,44 @@ const LoginPage = () => {
                       </>
                     )}
                   </button>
+                </div>
+              )}
+
+              {selectedMethod === "fingerprint" && canUseFingerprint && (
+                <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Fingerprint className="w-5 h-5 text-[#005F02]" />
+                    <p className="font-semibold text-gray-800">Verificación dactilar</p>
+                  </div>
+                  <p className="text-sm text-gray-700">
+                    Inicializando dispositivo y conectando... coloca tu huella en los próximos 25 segundos.
+                  </p>
+                  {fingerprintMessage && (
+                    <p className="mt-2 text-xs text-gray-500">{fingerprintMessage}</p>
+                  )}
+                  <div className="mt-3 flex items-center gap-2 text-sm text-gray-700">
+                    {isVerifyingFingerprint && (
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-[#005F02] rounded-full animate-spin" />
+                    )}
+                    <span>{isVerifyingFingerprint ? "Esperando huella..." : "Listo para capturar"}</span>
+                  </div>
+                  <div className="mt-3 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleFingerprintVerification}
+                      className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#005F02] to-[#427A43] text-white font-semibold hover:opacity-95"
+                      disabled={isVerifyingFingerprint}
+                    >
+                      {isVerifyingFingerprint ? "Capturando..." : "Reintentar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMethod(null)}
+                      className="px-4 py-3 rounded-xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
               )}
 
